@@ -106,7 +106,6 @@ class Combat:
         survivors = self.determine_survivors(winner)
         remaining_health = self.determine_remaining_health(winner)
         if winner:
-            print(f"The winner is {winner.name}.")
+            return winner.name, survivors, remaining_health, self.action_log
         else:
-            print("It's a draw!")
-        return winner.name, survivors, remaining_health
+            return None, survivors, remaining_health, self.action_log
