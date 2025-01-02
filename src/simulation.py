@@ -19,6 +19,7 @@ class Simulation:
         faction2 = copy.deepcopy(self.factions[1])
         combat = Combat(faction1, faction2)
         winner, survivors, remaining_health = combat.run_combat()
+        print(f"Combat log: {combat.action_log}.")
         return {"winner": winner, "survivors": survivors, "remaining_health": remaining_health}
 
     def calculate_survival_probabilities(self, results):

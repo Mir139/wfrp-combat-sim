@@ -5,13 +5,14 @@ class Combat:
     def __init__(self, faction1, faction2):
         self.faction1 = faction1
         self.faction2 = faction2
+        self.action_log = []
 
     def determine_initiative_order(self):
         all_characters = self.faction1.get_members() + self.faction2.get_members()
         return sorted(all_characters, key=lambda char: char.I, reverse=True)
 
     def initiate_combat(self):
-        print("Combat initiated between factions.")
+        self.action_log.append("Combat initiated between factions.")
         self.initiative_order = self.determine_initiative_order()
 
     def resolve_turn(self, character):
@@ -29,26 +30,33 @@ class Combat:
                 if enemy:
                     character.engaged = True
                     enemy.engaged = True
-                    print(f"{character.name} engages {enemy.name}.")
+                    self.action_log.append(f"{character.name} engages {enemy.name}.")
 
     def action_phase(self, character):
         if character.engaged:
-            enemy = self.find_enemy(character)
+            enemy = self.find_engaged_enemy(character)
             if enemy:
                 character.attack_enemy(enemy)
-                print(f"{character.name} attacks {enemy.name}.")
+                self.action_log.append(f"{character.name} attacks {enemy.name}.")
         else:
             # Logic for ranged attack
             enemy = self.find_enemy(character)
             if enemy:
                 character.attack_enemy(enemy)
-                print(f"{character.name} shoots at {enemy.name}.")
+                self.action_log.append(f"{character.name} shoots at {enemy.name}.")
 
     def find_enemy(self, character):
         enemies = self.faction2.get_members() if character in self.faction1.get_members() else self.faction1.get_members()
         alive_enemies = [enemy for enemy in enemies if enemy.is_alive()]
         if alive_enemies:
             return random.choice(alive_enemies)
+        return None
+
+    def find_engaged_enemy(self, character):
+        enemies = self.faction2.get_members() if character in self.faction1.get_members() else self.faction1.get_members()
+        engaged_enemies = [enemy for enemy in enemies if enemy.engaged and enemy.is_alive()]
+        if engaged_enemies:
+            return random.choice(engaged_enemies)
         return None
 
     def determine_winner(self):
