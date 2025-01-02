@@ -36,7 +36,7 @@ rpg-combat-simulator
 ## Installation
 1. Clone the repository:
    ```
-   git clone <repository-url>
+   git clone https://github.com/Mir139/wfrp-combat-sim.git
    ```
 2. Navigate to the project directory:
    ```
