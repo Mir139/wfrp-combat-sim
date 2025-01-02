@@ -77,123 +77,123 @@ pytest tests/
 ### Example Configuration (job1.json)
    ```json
    {
-    "factions": [
-        {
+      "factions": [
+         {
             "name": "Faction1",
             "members": [
-                {
-                    "name": "Hero1",
-                    "health": 10,
-                    "M": 4,
-                    "CC": 50,
-                    "CT": 30,
-                    "F": 40,
-                    "E": 30,
-                    "I": 20,
-                    "Ag": 30,
-                    "Dex": 20,
-                    "Int": 30,
-                    "FM": 20,
-                    "Soc": 10,
-                    "inventory": [
-                        {
-                            "type": "melee_weapons",
-                            "name": "(2M) Épée bâtarde"
-                        },
-                        {
-                            "type": "armors",
-                            "name": "Armure lourde"
-                        }
-                    ]
-                },
-                {
-                    "name": "Hero2",
-                    "health": 12,
-                    "M": 4,
-                    "CC": 35,
-                    "CT": 45,
-                    "F": 35,
-                    "E": 25,
-                    "I": 25,
-                    "Ag": 25,
-                    "Dex": 25,
-                    "Int": 25,
-                    "FM": 25,
-                    "Soc": 15,
-                    "inventory": [
-                        {
-                            "type": "ranged_weapons",
-                            "name": "(2M) Arc long"
-                        },
-                        {
-                            "type": "armors",
-                            "name": "Armure légère"
-                        }
-                    ]
-                }
+               {
+                  "name": "Hero1",
+                  "health": 10,
+                  "M": 4,
+                  "CC": 50,
+                  "CT": 30,
+                  "F": 40,
+                  "E": 30,
+                  "I": 20,
+                  "Ag": 30,
+                  "Dex": 20,
+                  "Int": 30,
+                  "FM": 20,
+                  "Soc": 10,
+                  "inventory": [
+                     {
+                        "type": "melee_weapons",
+                        "name": "(2M) Épée bâtarde"
+                     },
+                     {
+                        "type": "armors",
+                        "name": "Armure lourde"
+                     }
+                  ]
+               },
+               {
+                  "name": "Hero2",
+                  "health": 12,
+                  "M": 4,
+                  "CC": 35,
+                  "CT": 45,
+                  "F": 35,
+                  "E": 25,
+                  "I": 25,
+                  "Ag": 25,
+                  "Dex": 25,
+                  "Int": 25,
+                  "FM": 25,
+                  "Soc": 15,
+                  "inventory": [
+                     {
+                        "type": "ranged_weapons",
+                        "name": "(2M) Arc long"
+                     },
+                     {
+                        "type": "armors",
+                        "name": "Armure légère"
+                     }
+                  ]
+               }
             ]
-        },
-        {
+         },
+         {
             "name": "Faction2",
             "members": [
-                {
-                    "name": "Enemy1",
-                    "health": 14,
-                    "M": 4,
-                    "CC": 40,
-                    "CT": 20,
-                    "F": 30,
-                    "E": 20,
-                    "I": 10,
-                    "Ag": 20,
-                    "Dex": 10,
-                    "Int": 20,
-                    "FM": 10,
-                    "Soc": 5,
-                    "inventory": [
-                        {
-                            "type": "melee_weapons",
-                            "name": "Hache"
-                        },
-                        {
-                            "type": "armors",
-                            "name": "Armure moyenne"
-                        }
-                    ]
-                },
-                {
-                    "name": "Enemy2",
-                    "health": 16,
-                    "M": 4,
-                    "CC": 30,
-                    "CT": 35,
-                    "F": 25,
-                    "E": 15,
-                    "I": 15,
-                    "Ag": 15,
-                    "Dex": 15,
-                    "Int": 15,
-                    "FM": 15,
-                    "Soc": 10,
-                    "inventory": [
-                        {
-                            "type": "ranged_weapons",
-                            "name": "Arbalète"
-                        },
-                        {
-                            "type": "armors",
-                            "name": "Armure légère"
-                        }
-                    ]
-                }
+               {
+                  "name": "Enemy1",
+                  "health": 14,
+                  "M": 4,
+                  "CC": 40,
+                  "CT": 20,
+                  "F": 30,
+                  "E": 20,
+                  "I": 10,
+                  "Ag": 20,
+                  "Dex": 10,
+                  "Int": 20,
+                  "FM": 10,
+                  "Soc": 5,
+                  "inventory": [
+                     {
+                        "type": "melee_weapons",
+                        "name": "Hache"
+                     },
+                     {
+                        "type": "armors",
+                        "name": "Armure moyenne"
+                     }
+                  ]
+               },
+               {
+                  "name": "Enemy2",
+                  "health": 16,
+                  "M": 4,
+                  "CC": 30,
+                  "CT": 35,
+                  "F": 25,
+                  "E": 15,
+                  "I": 15,
+                  "Ag": 15,
+                  "Dex": 15,
+                  "Int": 15,
+                  "FM": 15,
+                  "Soc": 10,
+                  "inventory": [
+                     {
+                        "type": "ranged_weapons",
+                        "name": "Arbalète"
+                     },
+                     {
+                        "type": "armors",
+                        "name": "Armure légère"
+                     }
+                  ]
+               }
             ]
-        }
-    ],
-    "simulation": {
-        "num_simulations": 100
-    }
-}
-```
+         }
+      ],
+      "simulation": {
+         "num_simulations": 100
+      }
+   }
+   ```
 
 ## Contributing
 Contributions are welcome! Please submit a pull request or open an issue for any enhancements or bug fixes.
