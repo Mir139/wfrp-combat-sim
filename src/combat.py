@@ -12,7 +12,7 @@ class Combat:
         return sorted(all_characters, key=lambda char: char.I, reverse=True)
 
     def initiate_combat(self):
-        self.action_log.append("Combat initiated between factions.")
+        self.action_log.append({"action": "initiate_combat", "details": "Combat initiated between factions."})
         self.initiative_order = self.determine_initiative_order()
 
     def resolve_turn(self, character):
@@ -23,27 +23,42 @@ class Combat:
         self.action_phase(character)
 
     def movement_phase(self, character):
-        # Simplified movement phase
         if not character.engaged:
             if character.prefers_melee:
                 enemy = self.find_enemy(character)
                 if enemy:
                     character.engaged = True
                     enemy.engaged = True
-                    self.action_log.append(f"{character.name} engages {enemy.name}.")
+                    self.action_log.append({
+                        "action": "engage",
+                        "attacker": character.name,
+                        "target": enemy.name,
+                        "details": f"{character.name} engages {enemy.name}."
+                    })
 
     def action_phase(self, character):
         if character.engaged:
             enemy = self.find_engaged_enemy(character)
             if enemy:
-                character.attack_enemy(enemy)
-                self.action_log.append(f"{character.name} attacks {enemy.name}.")
+                attack_result = character.attack_enemy(enemy)
+                self.action_log.append({
+                    "action": "attack",
+                    "attacker": character.name,
+                    "target": enemy.name,
+                    "details": attack_result,
+                    "enemy_health": enemy.health
+                })
         else:
-            # Logic for ranged attack
             enemy = self.find_enemy(character)
             if enemy:
-                character.attack_enemy(enemy)
-                self.action_log.append(f"{character.name} shoots at {enemy.name}.")
+                attack_result = character.attack_enemy(enemy)
+                self.action_log.append({
+                    "action": "ranged_attack",
+                    "attacker": character.name,
+                    "target": enemy.name,
+                    "details": attack_result,
+                    "enemy_health": enemy.health
+                })
 
     def find_enemy(self, character):
         enemies = self.faction2.get_members() if character in self.faction1.get_members() else self.faction1.get_members()

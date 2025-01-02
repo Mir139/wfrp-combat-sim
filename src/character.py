@@ -51,6 +51,7 @@ class Character:
             
         damage_taken = max(1, damage - (self.E // 10) - PA)
         self.health -= damage_taken
+        return damage_taken
 
     def attack_enemy(self, enemy):
         if self.engaged:
@@ -59,11 +60,17 @@ class Character:
             attacker_dr = calculate_dr(attacker_roll, self.CC)
             enemy_dr = calculate_dr(enemy_roll, enemy.CC)
             if attacker_dr > enemy_dr:
-                self.apply_damage(enemy, attacker_roll, attacker_dr)
+                damage, location = self.apply_damage(enemy, attacker_roll, attacker_dr)
+                return {"attack_roll": attacker_roll, "damage": damage, "enemy_roll": enemy_roll, "enemy_dr": enemy_dr, "attacker_dr": attacker_dr, "location": location, "type": "melee"}
+            else:
+                return {"attack_roll": attacker_roll, "damage": 0, "enemy_roll": enemy_roll, "enemy_dr": enemy_dr, "attacker_dr": attacker_dr, "type": "melee"}
         else:
             attacker_roll = roll_d100()
             if attacker_roll <= self.CT:
-                self.apply_damage(enemy, attacker_roll, 0)
+                damage, location = self.apply_damage(enemy, attacker_roll, 0)
+                return {"attack_roll": attacker_roll, "damage": damage, "location": location, "type": "ranged"}
+            else:
+                return {"attack_roll": attacker_roll, "damage": 0, "type": "ranged"}
 
     def calculate_damage(self, weapon, dr):
         weapon_type = self.inventory.get_item_type(weapon)
@@ -80,7 +87,7 @@ class Character:
         location = self.determine_location(roll)
         weapon = self.inventory.get_equipped_weapon()
         damage = self.calculate_damage(weapon, dr)
-        enemy.take_damage(damage, location)
+        return enemy.take_damage(damage, location), location
 
     def determine_location(self, roll):
         if roll == 100:
