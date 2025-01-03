@@ -69,7 +69,7 @@ class SimulationGUI:
         try:
             with open(file_path, 'r', encoding='utf-8') as file:
                 data = json.load(file)
-                self.global_tree.insert("", 0, values=(file_path, "Job1 JSON Loaded", "", ""))
+                #self.global_tree.insert("", 0, values=(file_path, "Job1 JSON Loaded", "", ""))
         except Exception as e:
             messagebox.showerror("Error", f"Failed to load job1.json: {e}")
 
@@ -77,7 +77,7 @@ class SimulationGUI:
         try:
             with open(file_path, 'r', encoding='utf-8') as file:
                 data = json.load(file)
-                self.global_tree.insert("", 0, values=(file_path, "DB JSON Loaded", "", ""))
+                #self.global_tree.insert("", 0, values=(file_path, "DB JSON Loaded", "", ""))
         except Exception as e:
             messagebox.showerror("Error", f"Failed to load db.json: {e}")
 
@@ -92,16 +92,22 @@ class SimulationGUI:
             self.simulation_results = sim.run_simulation(num_simulations)
             metrics = sim.gather_metrics(self.simulation_results)
             
-            survival_probabilities = json.dumps(metrics["survival_probabilities"], ensure_ascii=False)
-            average_remaining_health = json.dumps(metrics["average_remaining_health"], ensure_ascii=False)
+            survival_probabilities = {k: f"{v:.2f}" for k, v in metrics["survival_probabilities"].items()}
+            average_remaining_health = {k: f"{v:.2f}" for k, v in metrics["average_remaining_health"].items()}
             
-            self.global_tree.insert("", 0, values=(self.job1_path.get(), metrics["total_battles"], survival_probabilities, average_remaining_health))
+            truncated_job_file = self.truncate_path(self.job1_path.get(), 32)
+            self.global_tree.insert("", 0, values=(truncated_job_file, metrics["total_battles"], json.dumps(survival_probabilities, ensure_ascii=False), json.dumps(average_remaining_health, ensure_ascii=False)))
             
             # Update the simulation selector
             self.simulation_selector['values'] = [f"Simulation {i+1}" for i in range(num_simulations)]
             self.simulation_selector.current(0)
         except Exception as e:
             messagebox.showerror("Error", f"Failed to run simulation: {e}")
+
+    def truncate_path(self, path, max_length):
+        if len(path) > max_length:
+            return "..." + path[-(max_length-3):]
+        return path
 
     def show_simulation_details(self):
         try:
