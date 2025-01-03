@@ -61,9 +61,9 @@ class Character:
             enemy_dr = calculate_dr(enemy_roll, enemy.CC)
             if attacker_dr > enemy_dr:
                 damage, location = self.apply_damage(enemy, attacker_roll, attacker_dr)
-                return {"attack_roll": attacker_roll, "damage": damage, "enemy_roll": enemy_roll, "enemy_dr": enemy_dr, "attacker_dr": attacker_dr, "location": location, "type": "melee"}
+                return {"attack_roll": attacker_roll, "damage": damage, "enemy_roll": enemy_roll, "enemy_dr": enemy_dr, "attack_dr": attacker_dr, "location": location, "type": "melee"}
             else:
-                return {"attack_roll": attacker_roll, "damage": 0, "enemy_roll": enemy_roll, "enemy_dr": enemy_dr, "attacker_dr": attacker_dr, "type": "melee"}
+                return {"attack_roll": attacker_roll, "damage": 0, "enemy_roll": enemy_roll, "enemy_dr": enemy_dr, "attack_dr": attacker_dr, "type": "melee"}
         else:
             attacker_roll = roll_d100()
             if attacker_roll <= self.CT:

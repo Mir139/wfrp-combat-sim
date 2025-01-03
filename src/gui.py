@@ -112,6 +112,8 @@ class SimulationGUI:
             elif action['action'] == "attack":
                 formatted_log += f"{action['attacker']} attacks {action['target']}.\n"
                 formatted_log += f"  Attack roll: {action['details']['attack_roll']}\n"
+                formatted_log += f"  Defend roll: {action['details']['enemy_roll']}\n"
+                formatted_log += f"  DR: attack: {action['details']['attack_dr']} / defend: {action['details']['enemy_dr']}\n"
                 formatted_log += f"  Damage: {action['details']['damage']}\n"
                 formatted_log += f"  {action['target']} health: {action['enemy_health']}\n"
             elif action['action'] == "ranged_attack":
