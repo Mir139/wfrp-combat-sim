@@ -36,16 +36,18 @@ class SimulationGUI:
         self.simulation_selector.grid(row=4, column=1)
         tk.Button(self.root, text="Show Details", command=self.show_simulation_details).grid(row=4, column=2)
         
-        self.global_tree = Treeview(self.root, columns=("Job File", "Total Battles", "Survival Probabilities", "Average Remaining Health"), show="headings")
+        self.global_tree = Treeview(self.root, columns=("Job File", "Total Battles", "Survival Prob. (factions)", "Survival Prob. (individuals)", "Average Remaining Health"), show="headings")
         self.global_tree.heading("Job File", text="Job File")
         self.global_tree.heading("Total Battles", text="Total Battles")
-        self.global_tree.heading("Survival Probabilities", text="Survival Probabilities")
+        self.global_tree.heading("Survival Prob. (factions)", text="Survival Prob. (factions)")
+        self.global_tree.heading("Survival Prob. (individuals)", text="Survival Prob. (individuals)")
         self.global_tree.heading("Average Remaining Health", text="Average Remaining Health")
         
         self.global_tree.column("Job File", width=200)
-        self.global_tree.column("Total Battles", width=100)
-        self.global_tree.column("Survival Probabilities", width=200)
-        self.global_tree.column("Average Remaining Health", width=200)
+        self.global_tree.column("Total Battles", width=75)
+        self.global_tree.column("Survival Prob. (factions)", width=300)
+        self.global_tree.column("Survival Prob. (individuals)", width=400)
+        self.global_tree.column("Average Remaining Health", width=400)
         
         self.global_tree.grid(row=5, column=0, columnspan=3, pady=10)
         
@@ -93,10 +95,11 @@ class SimulationGUI:
             metrics = sim.gather_metrics(self.simulation_results)
             
             survival_probabilities = {k: f"{v:.2f}" for k, v in metrics["survival_probabilities"].items()}
-            average_remaining_health = {k: f"{v:.2f}" for k, v in metrics["average_remaining_health"].items()}
+            individual_survival_probabilities = {k: f"{v:.2f}" for k, v in metrics["individual_survival_probabilities"].items()}
+            individual_average_remaining_health = {k: f"{v:.2f}" for k, v in metrics["individual_average_remaining_health"].items()}
             
             truncated_job_file = self.truncate_path(self.job1_path.get(), 32)
-            self.global_tree.insert("", 0, values=(truncated_job_file, metrics["total_battles"], json.dumps(survival_probabilities, ensure_ascii=False), json.dumps(average_remaining_health, ensure_ascii=False)))
+            self.global_tree.insert("", 0, values=(truncated_job_file, metrics["total_battles"], json.dumps(survival_probabilities, ensure_ascii=False), json.dumps(individual_survival_probabilities, ensure_ascii=False), json.dumps(individual_average_remaining_health, ensure_ascii=False)))
             
             # Update the simulation selector
             self.simulation_selector['values'] = [f"Simulation {i+1}" for i in range(num_simulations)]
