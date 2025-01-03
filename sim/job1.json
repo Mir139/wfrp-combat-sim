@@ -1,55 +1,134 @@
 {
     "factions": [
         {
-            "name": "Faction1",
+            "name": "Joueurs",
             "members": [
                 {
-                    "name": "Hero1",
-                    "health": 10,
+                    "name": "Gunnar Hrolfsson",
+                    "health": 18,
                     "M": 4,
-                    "CC": 50,
-                    "CT": 30,
-                    "F": 40,
-                    "E": 30,
-                    "I": 20,
-                    "Ag": 30,
-                    "Dex": 20,
-                    "Int": 30,
-                    "FM": 20,
-                    "Soc": 10,
+                    "CC": 45,
+                    "CT": 26,
+                    "F": 38,
+                    "E": 51,
+                    "I": 34,
+                    "Ag": 23,
+                    "Dex": 38,
+                    "Int": 28,
+                    "FM": 52,
+                    "Soc": 18,
                     "inventory": [
                         {
                             "type": "melee_weapons",
-                            "name": "(2M) Épée bâtarde"
+                            "name": "(2M) Hache"
                         },
                         {
                             "type": "armors",
-                            "name": "Armure lourde"
+                            "name": "Pas d'armure"
                         }
                     ]
                 },
                 {
-                    "name": "Hero2",
-                    "health": 12,
+                    "name": "Else Sigloben",
+                    "health": 15,
                     "M": 4,
-                    "CC": 35,
-                    "CT": 45,
-                    "F": 35,
-                    "E": 25,
-                    "I": 25,
-                    "Ag": 25,
-                    "Dex": 25,
-                    "Int": 25,
-                    "FM": 25,
-                    "Soc": 15,
+                    "CC": 42,
+                    "CT": 48,
+                    "F": 32,
+                    "E": 45,
+                    "I": 29,
+                    "Ag": 28,
+                    "Dex": 24,
+                    "Int": 33,
+                    "FM": 48,
+                    "Soc": 26,
                     "inventory": [
                         {
                             "type": "ranged_weapons",
-                            "name": "(2M) Arc long"
+                            "name": "Pistolet"
+                        },
+                        {
+                            "type": "ranged_weapons",
+                            "name": "Pistolet"
                         },
                         {
                             "type": "armors",
                             "name": "Armure légère"
+                        }
+                    ]
+                },
+                {
+                    "name": "Salundra Von Drakenberg",
+                    "health": 15,
+                    "M": 4,
+                    "CC": 49,
+                    "CT": 35,
+                    "F": 36,
+                    "E": 43,
+                    "I": 32,
+                    "Ag": 33,
+                    "Dex": 28,
+                    "Int": 37,
+                    "FM": 46,
+                    "Soc": 28,
+                    "inventory": [
+                        {
+                            "type": "melee_weapons",
+                            "name": "Rapière"
+                        },
+                        {
+                            "type": "armors",
+                            "name": "Armure légère"
+                        }
+                    ]
+                },
+                {
+                    "name": "Amris Pluiedebraise",
+                    "health": 10,
+                    "M": 4,
+                    "CC": 48,
+                    "CT": 42,
+                    "F": 28,
+                    "E": 28,
+                    "I": 56,
+                    "Ag": 48,
+                    "Dex": 47,
+                    "Int": 60,
+                    "FM": 43,
+                    "Soc": 41,
+                    "inventory": [
+                        {
+                            "type": "melee_weapons",
+                            "name": "Rapière"
+                        },
+                        {
+                            "type": "armors",
+                            "name": "Armure légère"
+                        }
+                    ]
+                },
+                {
+                    "name": "Molrella Tuilecaramel",
+                    "health": 10,
+                    "M": 4,
+                    "CC": 23,
+                    "CT": 39,
+                    "F": 20,
+                    "E": 32,
+                    "I": 43,
+                    "Ag": 44,
+                    "Dex": 46,
+                    "Int": 26,
+                    "FM": 48,
+                    "Soc": 50,
+                    "inventory": [
+                        {
+                            "type": "ranged_weapons",
+                            "name": "Fronde"
+                        },
+                        {
+                            "type": "armors",
+                            "name": "Pas d'armure"
                         }
                     ]
                 }
@@ -59,52 +138,27 @@
             "name": "Faction2",
             "members": [
                 {
-                    "name": "Enemy1",
-                    "health": 14,
+                    "name": "Terreur de la Teufel",
+                    "health": 30,
                     "M": 4,
                     "CC": 40,
-                    "CT": 20,
-                    "F": 30,
-                    "E": 20,
-                    "I": 10,
-                    "Ag": 20,
-                    "Dex": 10,
-                    "Int": 20,
-                    "FM": 10,
+                    "CT": 15,
+                    "F": 55,
+                    "E": 45,
+                    "I": 20,
+                    "Ag": 15,
+                    "Dex": 15,
+                    "Int": 30,
+                    "FM": 20,
                     "Soc": 5,
                     "inventory": [
                         {
                             "type": "melee_weapons",
-                            "name": "(2M) Grande hache"
+                            "name": "Arme improvisée 9"
                         },
                         {
                             "type": "armors",
-                            "name": "Armure moyenne"
-                        }
-                    ]
-                },
-                {
-                    "name": "Enemy2",
-                    "health": 16,
-                    "M": 4,
-                    "CC": 25,
-                    "CT": 35,
-                    "F": 25,
-                    "E": 15,
-                    "I": 15,
-                    "Ag": 15,
-                    "Dex": 15,
-                    "Int": 15,
-                    "FM": 15,
-                    "Soc": 10,
-                    "inventory": [
-                        {
-                            "type": "ranged_weapons",
-                            "name": "(2M) Arbalete"
-                        },
-                        {
-                            "type": "armors",
-                            "name": "Armure légère"
+                            "name": "Armure 2"
                         }
                     ]
                 }

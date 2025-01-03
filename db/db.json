@@ -27,7 +27,9 @@
             { "name": "Fléau à grain", "reach": "Moyenne", "damage": "3", "attributes": ["Perturbante", "Imprécise", "À Enroulement"], "encumbrance": "1", "2M": false },
             { "name": "(2M) Fléau d’armes", "reach": "Longue", "damage": "6", "attributes": ["Perturbante", "Percutante", "Epuisante", "À Enroulement"], "encumbrance": "2", "2M": true },
             { "name": "Brise-épée", "reach": "Courte", "damage": "3", "attributes": ["Defensive", "Piège-lame"], "encumbrance": "1", "2M": false },
-            { "name": "Main gauche", "reach": "Très courte", "damage": "2", "attributes": ["Défensive"], "encumbrance": "0", "2M": false }
+            { "name": "Main gauche", "reach": "Très courte", "damage": "2", "attributes": ["Défensive"], "encumbrance": "0", "2M": false },
+            { "name": "(2M) Hache", "reach": "Longue", "damage": "4", "attributes": ["Percutante", "Taille"], "encumbrance": "2", "2M": true },
+            { "name": "Arme improvisée 9", "reach": "Courte", "damage": "9", "attributes": [], "encumbrance": "Variable", "2M": false }
         ],
         "ranged_weapons": [
             { "name": "(2M) Arbalete", "range": "60", "damage": "9", "attributes": ["Recharge 1"], "encumbrance": "2", "2M": true, "range_BF": false, "damage_BF": false },
@@ -57,9 +59,11 @@
             { "name": "(2M) Tromblon", "range": "20", "damage": "8", "attributes":["Explosion 3", "Dangereuse", "Recharge 2", "Poudre noire", "Dévastatrice"], "encumbrance": "1", "2M": true, "range_BF": false, "damage_BF": false }
         ],
         "armors": [
+            { "name": "Pas d'armure", "penalty": [], "location": "Tous", "armor_points": "0", "attributes": [] },
             { "name": "Armure légère", "penalty": [], "location": "Tous", "armor_points": "1", "attributes": ["Flexible"] },
             { "name": "Armure moyenne", "penalty": ["-10% Perception", "-10% Discrétion"], "location": "Tous", "armor_points": "2", "attributes": ["Flexible"] },
-            { "name": "Armure lourde", "penalty": ["-20% Perception", "-20% Discrétion"], "location": "Tous", "armor_points": "3", "attributes": ["Impénétrable", "Points faibles"] }
+            { "name": "Armure lourde", "penalty": ["-20% Perception", "-20% Discrétion"], "location": "Tous", "armor_points": "3", "attributes": ["Impénétrable", "Points faibles"] },
+            { "name": "Armure 2", "penalty": [], "location": "Tous", "armor_points": "2", "attributes": [""] }
         ]
     }
 }
