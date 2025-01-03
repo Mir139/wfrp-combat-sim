@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import filedialog, messagebox
-from tkinter.ttk import Combobox
+from tkinter.ttk import Combobox, Treeview, Scrollbar
 import json
 from simulation import Simulation
 from loader import load_inventory, load_simulation_config, create_characters
@@ -36,8 +36,24 @@ class SimulationGUI:
         self.simulation_selector.grid(row=4, column=1)
         tk.Button(self.root, text="Show Details", command=self.show_simulation_details).grid(row=4, column=2)
         
-        self.text_area = tk.Text(self.root, wrap=tk.WORD, width=80, height=50)
-        self.text_area.grid(row=5, column=0, columnspan=3, pady=10)
+        self.tree = Treeview(self.root, columns=("Action", "Attacker", "Target", "Details", "Target HP"), show="headings")
+        self.tree.heading("Action", text="Action")
+        self.tree.heading("Attacker", text="Attacker")
+        self.tree.heading("Target", text="Target")
+        self.tree.heading("Details", text="Details")
+        self.tree.heading("Target HP", text="Target HP")
+        
+        self.tree.column("Action", width=100)
+        self.tree.column("Attacker", width=100)
+        self.tree.column("Target", width=100)
+        self.tree.column("Details", width=300)
+        self.tree.column("Target HP", width=100)
+        
+        self.tree.grid(row=5, column=0, columnspan=3, pady=10)
+        
+        scrollbar = Scrollbar(self.root, orient="vertical", command=self.tree.yview)
+        scrollbar.grid(row=5, column=3, sticky="ns")
+        self.tree.configure(yscrollcommand=scrollbar.set)
 
     def browse_job1(self):
         file_path = filedialog.askopenfilename(initialdir='./sim', filetypes=[("JSON files", "*.json")])
@@ -55,8 +71,8 @@ class SimulationGUI:
         try:
             with open(file_path, 'r', encoding='utf-8') as file:
                 data = json.load(file)
-                self.text_area.delete(1.0, tk.END)
-                self.text_area.insert(tk.END, json.dumps(data, indent=4, ensure_ascii=False))
+                self.tree.delete(*self.tree.get_children())
+                self.tree.insert("", tk.END, values=("Job1 JSON Loaded", "", "", "", ""))
         except Exception as e:
             messagebox.showerror("Error", f"Failed to load job1.json: {e}")
 
@@ -64,8 +80,8 @@ class SimulationGUI:
         try:
             with open(file_path, 'r', encoding='utf-8') as file:
                 data = json.load(file)
-                self.text_area.delete(1.0, tk.END)
-                self.text_area.insert(tk.END, json.dumps(data, indent=4, ensure_ascii=False))
+                self.tree.delete(*self.tree.get_children())
+                self.tree.insert("", tk.END, values=("DB JSON Loaded", "", "", "", ""))
         except Exception as e:
             messagebox.showerror("Error", f"Failed to load db.json: {e}")
 
@@ -80,8 +96,8 @@ class SimulationGUI:
             self.simulation_results = sim.run_simulation(num_simulations)
             metrics = sim.gather_metrics(self.simulation_results)
             
-            self.text_area.delete(1.0, tk.END)
-            self.text_area.insert(tk.END, json.dumps(metrics, indent=4, ensure_ascii=False))
+            self.tree.delete(*self.tree.get_children())
+            self.tree.insert("", tk.END, values=("Simulation Completed", "", "", "", ""))
             
             # Update the simulation selector
             self.simulation_selector['values'] = [f"Simulation {i+1}" for i in range(num_simulations)]
@@ -94,35 +110,23 @@ class SimulationGUI:
             selected_index = self.simulation_selector.current()
             if selected_index >= 0:
                 selected_simulation = self.simulation_results[selected_index]
-                formatted_log = self.format_action_log(selected_simulation['action_log'])
-                self.text_area.delete(1.0, tk.END)
-                self.text_area.insert(tk.END, formatted_log)
+                self.tree.delete(*self.tree.get_children())
+                self.populate_treeview(selected_simulation['action_log'])
             else:
                 messagebox.showwarning("Warning", "No simulation selected.")
         except Exception as e:
             messagebox.showerror("Error", f"Failed to show simulation details: {e}")
 
-    def format_action_log(self, action_log):
-        formatted_log = ""
+    def populate_treeview(self, action_log):
         for action in action_log:
             if action['action'] == "initiate_combat":
-                formatted_log += f"Combat initiated between factions.\n"
+                self.tree.insert("", tk.END, values=("Initiate Combat", "", "", action['details'], ""))
             elif action['action'] == "engage":
-                formatted_log += f"{action['attacker']} engages {action['target']}.\n"
+                self.tree.insert("", tk.END, values=("Engage", action['attacker'], action['target'], action['details'], ""))
             elif action['action'] == "attack":
-                formatted_log += f"{action['attacker']} attacks {action['target']}.\n"
-                formatted_log += f"  Attack roll: {action['details']['attack_roll']}\n"
-                formatted_log += f"  Defend roll: {action['details']['enemy_roll']}\n"
-                formatted_log += f"  DR: attack: {action['details']['attack_dr']} / defend: {action['details']['enemy_dr']}\n"
-                formatted_log += f"  Damage: {action['details']['damage']}\n"
-                formatted_log += f"  {action['target']} health: {action['enemy_health']}\n"
+                self.tree.insert("", tk.END, values=("Attack", action['attacker'], action['target'], f"Attack roll: {action['details']['attack_roll']}, Damage: {action['details']['damage']}", action['enemy_health']))
             elif action['action'] == "ranged_attack":
-                formatted_log += f"{action['attacker']} shoots at {action['target']}.\n"
-                formatted_log += f"  Attack roll: {action['details']['attack_roll']}\n"
-                formatted_log += f"  Damage: {action['details']['damage']}\n"
-                formatted_log += f"  {action['target']} health: {action['enemy_health']}\n"
-            formatted_log += "\n"
-        return formatted_log
+                self.tree.insert("", tk.END, values=("Ranged Attack", action['attacker'], action['target'], f"Attack roll: {action['details']['attack_roll']}, Damage: {action['details']['damage']}", action['enemy_health']))
 
 if __name__ == "__main__":
     root = tk.Tk()
