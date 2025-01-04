@@ -5,13 +5,14 @@ class Combat:
     def __init__(self, faction1, faction2):
         self.faction1 = faction1
         self.faction2 = faction2
+        self.action_log = []
 
     def determine_initiative_order(self):
         all_characters = self.faction1.get_members() + self.faction2.get_members()
         return sorted(all_characters, key=lambda char: char.I, reverse=True)
 
     def initiate_combat(self):
-        print("Combat initiated between factions.")
+        self.action_log.append({"action": "initiate_combat", "details": "Combat initiated between factions."})
         self.initiative_order = self.determine_initiative_order()
 
     def resolve_turn(self, character):
@@ -22,33 +23,55 @@ class Combat:
         self.action_phase(character)
 
     def movement_phase(self, character):
-        # Simplified movement phase
         if not character.engaged:
             if character.prefers_melee:
                 enemy = self.find_enemy(character)
                 if enemy:
                     character.engaged = True
                     enemy.engaged = True
-                    print(f"{character.name} engages {enemy.name}.")
+                    self.action_log.append({
+                        "action": "engage",
+                        "attacker": character.name,
+                        "target": enemy.name,
+                        "details": f"{character.name} engages {enemy.name}."
+                    })
 
     def action_phase(self, character):
         if character.engaged:
-            enemy = self.find_enemy(character)
+            enemy = self.find_engaged_enemy(character)
             if enemy:
-                character.attack_enemy(enemy)
-                print(f"{character.name} attacks {enemy.name}.")
+                attack_result = character.attack_enemy(enemy)
+                self.action_log.append({
+                    "action": "attack",
+                    "attacker": character.name,
+                    "target": enemy.name,
+                    "details": attack_result,
+                    "enemy_health": enemy.health
+                })
         else:
-            # Logic for ranged attack
             enemy = self.find_enemy(character)
             if enemy:
-                character.attack_enemy(enemy)
-                print(f"{character.name} shoots at {enemy.name}.")
+                attack_result = character.attack_enemy(enemy)
+                self.action_log.append({
+                    "action": "ranged_attack",
+                    "attacker": character.name,
+                    "target": enemy.name,
+                    "details": attack_result,
+                    "enemy_health": enemy.health
+                })
 
     def find_enemy(self, character):
         enemies = self.faction2.get_members() if character in self.faction1.get_members() else self.faction1.get_members()
         alive_enemies = [enemy for enemy in enemies if enemy.is_alive()]
         if alive_enemies:
             return random.choice(alive_enemies)
+        return None
+
+    def find_engaged_enemy(self, character):
+        enemies = self.faction2.get_members() if character in self.faction1.get_members() else self.faction1.get_members()
+        engaged_enemies = [enemy for enemy in enemies if enemy.engaged and enemy.is_alive()]
+        if engaged_enemies:
+            return random.choice(engaged_enemies)
         return None
 
     def determine_winner(self):
@@ -83,7 +106,6 @@ class Combat:
         survivors = self.determine_survivors(winner)
         remaining_health = self.determine_remaining_health(winner)
         if winner:
-            print(f"The winner is {winner.name}.")
+            return winner.name, survivors, remaining_health, self.action_log
         else:
-            print("It's a draw!")
-        return winner.name, survivors, remaining_health
+            return None, survivors, remaining_health, self.action_log
