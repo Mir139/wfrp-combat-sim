@@ -66,6 +66,7 @@ def create_characters(factions_data, inventory_data):
                 faction=faction
             )
             character.set_target_selection_priority(member_data.get('target_selection_priority', None))
+            character.set_skills(member_data.get('skills', None))
             for item in member_data['inventory']:
                 item_data = next((i for i in inventory_data[item['type']] if i['name'] == item['name']), None)
                 if item_data:

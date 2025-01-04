@@ -133,15 +133,15 @@ class Combat:
         target = None
         highest_attack = 0
         for enemy in potential_targets:
-            if enemy.prefers_melee and enemy.characteristics["CC"] > highest_attack:
-                highest_attack = enemy.characteristics["CC"]
+            if enemy.prefers_melee and enemy.get_melee_attack() > highest_attack:
+                highest_attack = enemy.get_melee_attack()
                 target = enemy
             else:
-                if not enemy.engaged and enemy.characteristics["CT"] > highest_attack:
-                    highest_attack = enemy.characteristics["CT"]
+                if not enemy.engaged and enemy.get_ranged_attack() > highest_attack:
+                    highest_attack = enemy.get_ranged_attack()
                     target = enemy
-                elif not enemy.engaged and enemy.characteristics["CC"] > highest_attack:
-                    highest_attack = enemy.characteristics["CC"]
+                elif not enemy.engaged and enemy.get_melee_attack() > highest_attack:
+                    highest_attack = enemy.get_melee_attack()
                     target = enemy
         return target
     

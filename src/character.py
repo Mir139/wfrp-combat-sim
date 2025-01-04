@@ -20,6 +20,7 @@ class Character:
             "FM": FM,
             "Soc": Soc
         }
+        self.skills = {}
         self.inventory = Inventory()  # Initialize inventory as an Inventory object
         self.faction = faction
         self.engaged = False
@@ -30,6 +31,13 @@ class Character:
             self.prefers_melee = True
         else:
             self.prefers_melee = False
+
+    def set_skills(self, skills):
+        if skills:
+            self.skills = skills
+
+    def get_skill(self, skill_name):
+        return self.skills.get(skill_name, 0)
 
     def set_target_selection_priority(self, method):
         if method:
@@ -60,12 +68,18 @@ class Character:
         self.health -= damage_taken
         return damage_taken
 
+    def get_melee_attack(self):
+        return self.characteristics["CC"]+self.get_skill("Corps à corps")
+    
+    def get_ranged_attack(self):
+        return self.characteristics["CT"]+self.get_skill("Projectile")
+    
     def attack_enemy(self, enemy):
         if self.engaged:
             attacker_roll = roll_d100()
             enemy_roll = roll_d100()
-            attacker_dr = calculate_dr(attacker_roll, self.characteristics["CC"])
-            enemy_dr = calculate_dr(enemy_roll, enemy.characteristics["CC"])
+            attacker_dr = calculate_dr(attacker_roll, self.get_melee_attack())
+            enemy_dr = calculate_dr(enemy_roll, enemy.get_melee_attack())
             if attacker_dr > enemy_dr:
                 damage, location = self.apply_damage(enemy, attacker_roll, attacker_dr)
                 return {"attack_roll": attacker_roll, "damage": damage, "enemy_roll": enemy_roll, "enemy_dr": enemy_dr, "attack_dr": attacker_dr, "location": location, "type": "melee"}
@@ -73,7 +87,7 @@ class Character:
                 return {"attack_roll": attacker_roll, "damage": 0, "enemy_roll": enemy_roll, "enemy_dr": enemy_dr, "attack_dr": attacker_dr, "type": "melee"}
         else:
             attacker_roll = roll_d100()
-            if attacker_roll <= self.characteristics["CT"]:
+            if attacker_roll <= self.get_ranged_attack():
                 damage, location = self.apply_damage(enemy, attacker_roll, 0)
                 return {"attack_roll": attacker_roll, "damage": damage, "location": location, "type": "ranged"}
             else:
