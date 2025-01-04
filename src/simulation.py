@@ -1,3 +1,4 @@
+import argparse
 from loader import load_inventory, load_simulation_config, create_characters
 from combat import Combat
 import copy
@@ -64,8 +65,13 @@ class Simulation:
 
 # Example usage
 if __name__ == "__main__":
-    inventory_data = load_inventory('./db/db.json')
-    config_data = load_simulation_config('./sim/job1.json')
+    parser = argparse.ArgumentParser(description="Run combat simulation.")
+    parser.add_argument("inventory_file", type=str, help="Path to the inventory JSON file.")
+    parser.add_argument("config_file", type=str, help="Path to the configuration JSON file.")
+    args = parser.parse_args()
+
+    inventory_data = load_inventory(args.inventory_file)
+    config_data = load_simulation_config(args.config_file)
     factions = create_characters(config_data['factions'], inventory_data)
     num_simulations = config_data['simulation']['num_simulations']
 

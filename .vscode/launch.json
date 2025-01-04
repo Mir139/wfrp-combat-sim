@@ -16,7 +16,8 @@
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/src/simulation.py",
-            "console": "integratedTerminal"
+            "console": "integratedTerminal",
+            "args": ["./db/db.json", "./sim/job1.json"]
         }
     ]
 }

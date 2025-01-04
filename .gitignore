@@ -1,2 +1,6 @@
 src/__pycache__
 *.pyc
+sim/*
+db/*
+!sim/job1.json
+!db/db.json
