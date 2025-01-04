@@ -72,7 +72,7 @@ def create_characters(factions_data, inventory_data):
                     if item_instance:
                         character.inventory.add_item(item_instance)
                         if isinstance(item_instance, (MeleeWeapon, RangedWeapon)):
-                            character.inventory.equip_weapon(item_instance.name)
+                            character.equip_weapon(item_instance.name)
                 else:
                     warnings.warn(f"Item '{item['name']}' of type '{item['type']}' not found in inventory data.")
             faction.add_member(character)

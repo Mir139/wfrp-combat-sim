@@ -6,7 +6,15 @@ class Combat:
         self.faction1 = faction1
         self.faction2 = faction2
         self.action_log = []
+        self.engagements = {}  # Dictionnaire pour suivre les engagements
 
+    def clean_character_engagement(self, character):
+        engagements = self.engagements.get(character.name, [])
+        if engagements and not character.engaged:
+            character.engaged = True
+        elif not engagements and character.engaged:
+            character.engaged = False
+    
     def determine_initiative_order(self):
         all_characters = self.faction1.get_members() + self.faction2.get_members()
         return sorted(all_characters, key=lambda char: char.I, reverse=True)
@@ -29,6 +37,12 @@ class Combat:
                 if enemy:
                     character.engaged = True
                     enemy.engaged = True
+                    if character.name not in self.engagements:
+                        self.engagements[character.name] = []
+                    if enemy.name not in self.engagements:
+                        self.engagements[enemy.name] = []
+                    self.engagements[character.name].append(enemy.name)
+                    self.engagements[enemy.name].append(character.name)
                     self.action_log.append({
                         "action": "engage",
                         "attacker": character.name,
@@ -38,16 +52,19 @@ class Combat:
 
     def action_phase(self, character):
         if character.engaged:
-            enemy = self.find_engaged_enemy(character)
-            if enemy:
-                attack_result = character.attack_enemy(enemy)
-                self.action_log.append({
-                    "action": "attack",
-                    "attacker": character.name,
-                    "target": enemy.name,
-                    "details": attack_result,
-                    "enemy_health": enemy.health
-                })
+            enemy_name = self.select_target(self.engagements.get(character.name))
+            if enemy_name:
+                enemy = self.find_character_by_name(enemy_name)
+                if enemy and enemy.is_alive():
+                    attack_result = character.attack_enemy(enemy)
+                    self.action_log.append({
+                        "action": "attack",
+                        "attacker": character.name,
+                        "target": enemy.name,
+                        "details": attack_result,
+                        "enemy_health": enemy.health
+                    })
+                    self.handle_target_death(character, enemy)
         else:
             enemy = self.find_enemy(character)
             if enemy:
@@ -59,19 +76,42 @@ class Combat:
                     "details": attack_result,
                     "enemy_health": enemy.health
                 })
+                self.handle_target_death(character, enemy)
+    
+    def handle_target_death(self, attacker, target):
+        if not target.is_alive():
+            if target.engaged:
+                self.engagements.pop(target.name, None)
+                for enemy_name in self.engagements:
+                    try:
+                        self.engagements[enemy_name].remove(target.name)
+                    except ValueError:
+                        pass
+                    self.clean_character_engagement(self.find_character_by_name(enemy_name))
+            
+            self.action_log.append({
+                "action": "death",
+                "attacker": attacker.name,
+                "target": target.name,
+                "details": f"{target.name} has been killed by {attacker.name}.",
+                "enemy_health": target.health
+            })
+
+    def select_target(self, potential_targets):
+        return random.choice(potential_targets)
 
     def find_enemy(self, character):
         enemies = self.faction2.get_members() if character in self.faction1.get_members() else self.faction1.get_members()
         alive_enemies = [enemy for enemy in enemies if enemy.is_alive()]
         if alive_enemies:
-            return random.choice(alive_enemies)
+            return self.select_target(alive_enemies)
         return None
 
-    def find_engaged_enemy(self, character):
-        enemies = self.faction2.get_members() if character in self.faction1.get_members() else self.faction1.get_members()
-        engaged_enemies = [enemy for enemy in enemies if enemy.engaged and enemy.is_alive()]
-        if engaged_enemies:
-            return random.choice(engaged_enemies)
+    def find_character_by_name(self, name):
+        all_characters = self.faction1.get_members() + self.faction2.get_members()
+        for character in all_characters:
+            if character.name == name:
+                return character
         return None
 
     def determine_winner(self):

@@ -186,9 +186,10 @@ class SimulationGUI:
                 tree.insert("", tk.END, values=("Attack", action['attacker'], action['target'], f"{action['details']['attack_roll']} | {action['details']['enemy_roll']}", f"{action['details']['attack_dr']} | {action['details']['enemy_dr']}", action['details']['damage'], action['enemy_health']))
             elif action['action'] == "ranged_attack":
                 tree.insert("", tk.END, values=("Ranged Attack", action['attacker'], action['target'], action['details']['attack_roll'], "", action['details']['damage'], action['enemy_health']))
+            elif action['action'] == "death":
+                tree.insert("", tk.END, values=("Death", "", action['target'], "", "", "", action['enemy_health']))
 
     def on_click(self, event):
-        #item = self.global_tree.selection()[0]
         item = self.global_tree.focus()
         num_simulations = int(self.global_tree.item(item, "values")[2])
         self.update_simulation_selector(num_simulations)
