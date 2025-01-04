@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import filedialog, messagebox, Toplevel
+from tkinter import filedialog, messagebox, Toplevel, Text
 from tkinter.ttk import Combobox, Treeview, Scrollbar
 import json
 from simulation import Simulation
@@ -36,24 +36,28 @@ class SimulationGUI:
         self.simulation_selector.grid(row=4, column=1)
         tk.Button(self.root, text="Show Details", command=self.show_simulation_details).grid(row=4, column=2)
         
-        self.global_tree = Treeview(self.root, columns=("Job File", "Total Battles", "Survival Prob. (factions)", "Survival Prob. (individuals)", "Average Remaining Health"), show="headings")
+        self.global_tree = Treeview(self.root, columns=("#", "Job File", "Total Battles", "Survival Prob. (factions)", "Survival Prob. (individuals)", "Average Remaining Health"), show="headings")
+        self.global_tree.heading("#", text="#")
         self.global_tree.heading("Job File", text="Job File")
         self.global_tree.heading("Total Battles", text="Total Battles")
         self.global_tree.heading("Survival Prob. (factions)", text="Survival Prob. (factions)")
         self.global_tree.heading("Survival Prob. (individuals)", text="Survival Prob. (individuals)")
         self.global_tree.heading("Average Remaining Health", text="Average Remaining Health")
         
+        self.global_tree.column("#", width=10)
         self.global_tree.column("Job File", width=200)
         self.global_tree.column("Total Battles", width=75)
         self.global_tree.column("Survival Prob. (factions)", width=300)
         self.global_tree.column("Survival Prob. (individuals)", width=400)
         self.global_tree.column("Average Remaining Health", width=400)
         
-        self.global_tree.grid(row=5, column=0, columnspan=3, pady=10)
+        self.global_tree.grid(row=6, column=0, columnspan=3, pady=10)
         
         scrollbar = Scrollbar(self.root, orient="vertical", command=self.global_tree.yview)
-        scrollbar.grid(row=5, column=3, sticky="ns")
+        scrollbar.grid(row=6, column=3, sticky="ns")
         self.global_tree.configure(yscrollcommand=scrollbar.set)
+        self.global_tree.bind("<ButtonRelease-1>", self.on_click)
+        self.global_tree.bind("<Double-1>", self.on_double_click)
 
     def browse_job1(self):
         file_path = filedialog.askopenfilename(initialdir='./sim', filetypes=[("JSON files", "*.json")])
@@ -91,22 +95,40 @@ class SimulationGUI:
             num_simulations = self.num_simulations.get()
 
             sim = Simulation(factions)
-            self.simulation_results = sim.run_simulation(num_simulations)
-            metrics = sim.gather_metrics(self.simulation_results)
-            
-            survival_probabilities = {k: f"{v:.2f}" for k, v in metrics["survival_probabilities"].items()}
-            individual_survival_probabilities = {k: f"{v:.2f}" for k, v in metrics["individual_survival_probabilities"].items()}
-            individual_average_remaining_health = {k: f"{v:.2f}" for k, v in metrics["individual_average_remaining_health"].items()}
+            sim_results = sim.run_simulation(num_simulations)
+            simulation_wrapper = {
+                "results": sim_results,
+                "metrics": sim.gather_metrics(sim_results)
+            }
+
+            survival_probabilities = self.format_decimals(simulation_wrapper["metrics"]["survival_probabilities"].items(), 2)
+            individual_survival_probabilities = self.format_decimals(simulation_wrapper["metrics"]["individual_survival_probabilities"].items(), 2)
+            individual_average_remaining_health = self.format_decimals(simulation_wrapper["metrics"]["individual_average_remaining_health"].items(), 2)
+                        
+            self.simulation_results.append(simulation_wrapper)
             
             truncated_job_file = self.truncate_path(self.job1_path.get(), 32)
-            self.global_tree.insert("", 0, values=(truncated_job_file, metrics["total_battles"], json.dumps(survival_probabilities, ensure_ascii=False), json.dumps(individual_survival_probabilities, ensure_ascii=False), json.dumps(individual_average_remaining_health, ensure_ascii=False)))
+            self.global_tree.insert("", 0, values=(len(self.simulation_results)-1, truncated_job_file, simulation_wrapper["metrics"]["total_battles"], json.dumps(survival_probabilities, ensure_ascii=False), json.dumps(individual_survival_probabilities, ensure_ascii=False), json.dumps(individual_average_remaining_health, ensure_ascii=False)))
             
+            # Put the selection on the latest inserted job
+            last_inserted_job = self.global_tree.get_children()[0]
+            self.global_tree.focus(last_inserted_job)
+            self.global_tree.selection_set(last_inserted_job)
+
             # Update the simulation selector
-            self.simulation_selector['values'] = [f"Simulation {i+1}" for i in range(num_simulations)]
-            self.simulation_selector.current(0)
+            self.update_simulation_selector(simulation_wrapper["metrics"]["total_battles"])
         except Exception as e:
             messagebox.showerror("Error", f"Failed to run simulation: {e}")
-
+    
+    def format_decimals(self, numbers, decimals):
+        if decimals == 2:
+            numbers_formated = {k: f"{v:.2f}" for k, v in numbers}
+        return numbers_formated
+    
+    def update_simulation_selector(self, num_simulations):
+        self.simulation_selector['values'] = [f"Simulation {i+1}" for i in range(num_simulations)]
+        self.simulation_selector.current(0)
+    
     def truncate_path(self, path, max_length):
         if len(path) > max_length:
             return "..." + path[-(max_length-3):]
@@ -114,9 +136,11 @@ class SimulationGUI:
 
     def show_simulation_details(self):
         try:
+            item = self.global_tree.selection()[0]
+            selected_job = int(self.global_tree.item(item, "values")[0])
             selected_index = self.simulation_selector.current()
-            if selected_index >= 0:
-                selected_simulation = self.simulation_results[selected_index]
+            if selected_job >= 0 and selected_index >= 0:
+                selected_simulation = self.simulation_results[selected_job]["results"][selected_index]
                 self.open_details_window(selected_simulation['action_log'])
             else:
                 messagebox.showwarning("Warning", "No simulation selected.")
@@ -159,6 +183,47 @@ class SimulationGUI:
             elif action['action'] == "ranged_attack":
                 tree.insert("", tk.END, values=("Ranged Attack", action['attacker'], action['target'], f"Attack roll: {action['details']['attack_roll']}, Damage: {action['details']['damage']}", action['enemy_health']))
 
+    def on_click(self, event):
+        #item = self.global_tree.selection()[0]
+        item = self.global_tree.focus()
+        num_simulations = int(self.global_tree.item(item, "values")[2])
+        self.update_simulation_selector(num_simulations)
+
+    def on_double_click(self, event):
+        item = self.global_tree.selection()[0]
+        job_id = int(self.global_tree.item(item, "values")[0])
+        self.open_job_details_window(job_id)
+
+    def open_job_details_window(self, job_id):
+        simulation_wrapper = self.simulation_results[job_id]
+        details_window = Toplevel(self.root)
+        details_window.title("Job Details")
+        
+        text = Text(details_window, wrap=tk.WORD, width=80, height=20)
+        text.grid(row=0, column=0, columnspan=3, pady=10)
+        
+        scrollbar = Scrollbar(details_window, orient="vertical", command=text.yview)
+        scrollbar.grid(row=0, column=3, sticky="ns")
+        text.configure(yscrollcommand=scrollbar.set)
+        formatted_log = self.format_job_result(simulation_wrapper)
+        text.delete(1.0, tk.END)
+        text.insert(tk.END, formatted_log)
+
+    def format_job_result(self, simulation_wrapper):
+        formatted_log = ""
+        formatted_log += f"Total battles: {simulation_wrapper["metrics"]["total_battles"]}\n"
+        #, json.dumps(simulation_wrapper["individual_survival_probabilities"], ensure_ascii=False), json.dumps(simulation_wrapper["individual_average_remaining_health"], ensure_ascii=False))
+        formatted_log += f"Survival probabilities:\n"
+        for faction in simulation_wrapper["metrics"]["survival_probabilities"]:
+            formatted_log += f"  {faction}: {simulation_wrapper["metrics"]["survival_probabilities"][faction]}\n"
+        formatted_log += f"\n"
+        formatted_log += f"Individual survival probabilities / Average remaining health:\n"
+        for member in simulation_wrapper["metrics"]["individual_survival_probabilities"]:
+            formatted_log += f"  {member}: {simulation_wrapper["metrics"]["individual_survival_probabilities"][member]} - {simulation_wrapper["metrics"]["individual_average_remaining_health"][member]}\n"
+        formatted_log += f"\n"
+
+        return formatted_log
+    
 if __name__ == "__main__":
     root = tk.Tk()
     app = SimulationGUI(root)
