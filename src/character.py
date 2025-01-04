@@ -7,24 +7,26 @@ class Character:
     def __init__(self, name, health, M, CC, CT, F, E, I, Ag, Dex, Int, FM, Soc, faction):
         self.name = name
         self.health = health
-        self.M = M
-        self.CC = CC
-        self.CT = CT
-        self.F = F
-        self.E = E
-        self.I = I
-        self.Ag = Ag
-        self.Dex = Dex
-        self.Int = Int
-        self.FM = FM
-        self.Soc = Soc
+        self.characteristics = {
+            "M": M,
+            "CC": CC,
+            "CT": CT,
+            "F": F,
+            "E": E,
+            "I": I,
+            "Ag": Ag,
+            "Dex": Dex,
+            "Int": Int,
+            "FM": FM,
+            "Soc": Soc
+        }
         self.inventory = Inventory()  # Initialize inventory as an Inventory object
         self.faction = faction
         self.engaged = False
         self.PA = [0,0,0,0,0,0]
         self.target_selection_priority = "random"
 
-        if self.CC > self.CT:
+        if self.characteristics["CC"] > self.characteristics["CT"]:
             self.prefers_melee = True
         else:
             self.prefers_melee = False
@@ -54,7 +56,7 @@ class Character:
         elif location == "Right Leg":
             PA = self.PA[5]
             
-        damage_taken = max(1, damage - (self.E // 10) - PA)
+        damage_taken = max(1, damage - self.BE() - PA)
         self.health -= damage_taken
         return damage_taken
 
@@ -62,8 +64,8 @@ class Character:
         if self.engaged:
             attacker_roll = roll_d100()
             enemy_roll = roll_d100()
-            attacker_dr = calculate_dr(attacker_roll, self.CC)
-            enemy_dr = calculate_dr(enemy_roll, enemy.CC)
+            attacker_dr = calculate_dr(attacker_roll, self.characteristics["CC"])
+            enemy_dr = calculate_dr(enemy_roll, enemy.characteristics["CC"])
             if attacker_dr > enemy_dr:
                 damage, location = self.apply_damage(enemy, attacker_roll, attacker_dr)
                 return {"attack_roll": attacker_roll, "damage": damage, "enemy_roll": enemy_roll, "enemy_dr": enemy_dr, "attack_dr": attacker_dr, "location": location, "type": "melee"}
@@ -71,7 +73,7 @@ class Character:
                 return {"attack_roll": attacker_roll, "damage": 0, "enemy_roll": enemy_roll, "enemy_dr": enemy_dr, "attack_dr": attacker_dr, "type": "melee"}
         else:
             attacker_roll = roll_d100()
-            if attacker_roll <= self.CT:
+            if attacker_roll <= self.characteristics["CT"]:
                 damage, location = self.apply_damage(enemy, attacker_roll, 0)
                 return {"attack_roll": attacker_roll, "damage": damage, "location": location, "type": "ranged"}
             else:
@@ -116,7 +118,7 @@ class Character:
         return self.health > 0
     
     def BF(self):
-        return floor(self.F/10)
+        return floor(self.characteristics["F"]/10)
     
     def BE(self):
-        return floor(self.E/10)
+        return floor(self.characteristics["E"]/10)

@@ -17,7 +17,7 @@ class Combat:
     
     def determine_initiative_order(self):
         all_characters = self.faction1.get_members() + self.faction2.get_members()
-        return sorted(all_characters, key=lambda char: char.I, reverse=True)
+        return sorted(all_characters, key=lambda char: char.characteristics["I"], reverse=True)
 
     def initiate_combat(self):
         self.action_log.append({"action": "initiate_combat", "details": "Combat initiated between factions."})
@@ -133,15 +133,15 @@ class Combat:
         target = None
         highest_attack = 0
         for enemy in potential_targets:
-            if enemy.prefers_melee and enemy.CC > highest_attack:
-                highest_attack = enemy.CC
+            if enemy.prefers_melee and enemy.characteristics["CC"] > highest_attack:
+                highest_attack = enemy.characteristics["CC"]
                 target = enemy
             else:
-                if not enemy.engaged and enemy.CT > highest_attack:
-                    highest_attack = enemy.CT
+                if not enemy.engaged and enemy.characteristics["CT"] > highest_attack:
+                    highest_attack = enemy.characteristics["CT"]
                     target = enemy
-                elif not enemy.engaged and enemy.CC > highest_attack:
-                    highest_attack = enemy.CC
+                elif not enemy.engaged and enemy.characteristics["CC"] > highest_attack:
+                    highest_attack = enemy.characteristics["CC"]
                     target = enemy
         return target
     
