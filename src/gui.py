@@ -141,27 +141,31 @@ class SimulationGUI:
             selected_index = self.simulation_selector.current()
             if selected_job >= 0 and selected_index >= 0:
                 selected_simulation = self.simulation_results[selected_job]["results"][selected_index]
-                self.open_details_window(selected_simulation['action_log'])
+                self.open_details_window(selected_simulation['action_log'], selected_job, selected_index)
             else:
                 messagebox.showwarning("Warning", "No simulation selected.")
         except Exception as e:
             messagebox.showerror("Error", f"Failed to show simulation details: {e}")
 
-    def open_details_window(self, action_log):
+    def open_details_window(self, action_log, job_id, sim_id):
         details_window = Toplevel(self.root)
-        details_window.title("Simulation Details")
+        details_window.title(f"Simulation Details - Job #{job_id} - Simulation {sim_id+1}")
         
-        tree = Treeview(details_window, columns=("Action", "Attacker", "Target", "Details", "Target HP"), show="headings")
+        tree = Treeview(details_window, columns=("Action", "Attacker", "Target", "Roll", "DR", "Damage", "Target HP"), show="headings")
         tree.heading("Action", text="Action")
         tree.heading("Attacker", text="Attacker")
         tree.heading("Target", text="Target")
-        tree.heading("Details", text="Details")
+        tree.heading("Roll", text="Roll")
+        tree.heading("DR", text="DR")
+        tree.heading("Damage", text="Damage")
         tree.heading("Target HP", text="Target HP")
         
         tree.column("Action", width=100)
-        tree.column("Attacker", width=100)
-        tree.column("Target", width=100)
-        tree.column("Details", width=300)
+        tree.column("Attacker", width=150)
+        tree.column("Target", width=150)
+        tree.column("Roll", width=50)
+        tree.column("DR", width=50)
+        tree.column("Damage", width=60)
         tree.column("Target HP", width=100)
         
         tree.grid(row=0, column=0, columnspan=3, pady=10)
@@ -175,13 +179,13 @@ class SimulationGUI:
     def populate_treeview(self, tree, action_log):
         for action in action_log:
             if action['action'] == "initiate_combat":
-                tree.insert("", tk.END, values=("Initiate Combat", "", "", action['details'], ""))
+                tree.insert("", tk.END, values=("Initiate Combat", "", "", "", "", "", ""))
             elif action['action'] == "engage":
-                tree.insert("", tk.END, values=("Engage", action['attacker'], action['target'], action['details'], ""))
+                tree.insert("", tk.END, values=("Engage", action['attacker'], action['target'], "", "", "", ""))
             elif action['action'] == "attack":
-                tree.insert("", tk.END, values=("Attack", action['attacker'], action['target'], f"Attack roll: {action['details']['attack_roll']}, Damage: {action['details']['damage']}", action['enemy_health']))
+                tree.insert("", tk.END, values=("Attack", action['attacker'], action['target'], f"{action['details']['attack_roll']} | {action['details']['enemy_roll']}", f"{action['details']['attack_dr']} | {action['details']['enemy_dr']}", action['details']['damage'], action['enemy_health']))
             elif action['action'] == "ranged_attack":
-                tree.insert("", tk.END, values=("Ranged Attack", action['attacker'], action['target'], f"Attack roll: {action['details']['attack_roll']}, Damage: {action['details']['damage']}", action['enemy_health']))
+                tree.insert("", tk.END, values=("Ranged Attack", action['attacker'], action['target'], action['details']['attack_roll'], "", action['details']['damage'], action['enemy_health']))
 
     def on_click(self, event):
         #item = self.global_tree.selection()[0]
@@ -197,7 +201,7 @@ class SimulationGUI:
     def open_job_details_window(self, job_id):
         simulation_wrapper = self.simulation_results[job_id]
         details_window = Toplevel(self.root)
-        details_window.title("Job Details")
+        details_window.title(f"Job Details #{job_id}")
         
         text = Text(details_window, wrap=tk.WORD, width=80, height=20)
         text.grid(row=0, column=0, columnspan=3, pady=10)
@@ -210,16 +214,18 @@ class SimulationGUI:
         text.insert(tk.END, formatted_log)
 
     def format_job_result(self, simulation_wrapper):
+        survival_probabilities = self.format_decimals(simulation_wrapper["metrics"]["survival_probabilities"].items(), 2)
+        individual_survival_probabilities = self.format_decimals(simulation_wrapper["metrics"]["individual_survival_probabilities"].items(), 2)
+        individual_average_remaining_health = self.format_decimals(simulation_wrapper["metrics"]["individual_average_remaining_health"].items(), 2)
         formatted_log = ""
         formatted_log += f"Total battles: {simulation_wrapper["metrics"]["total_battles"]}\n"
-        #, json.dumps(simulation_wrapper["individual_survival_probabilities"], ensure_ascii=False), json.dumps(simulation_wrapper["individual_average_remaining_health"], ensure_ascii=False))
         formatted_log += f"Survival probabilities:\n"
-        for faction in simulation_wrapper["metrics"]["survival_probabilities"]:
-            formatted_log += f"  {faction}: {simulation_wrapper["metrics"]["survival_probabilities"][faction]}\n"
+        for faction in survival_probabilities:
+            formatted_log += f"  {faction}: {survival_probabilities[faction]}\n"
         formatted_log += f"\n"
         formatted_log += f"Individual survival probabilities / Average remaining health:\n"
-        for member in simulation_wrapper["metrics"]["individual_survival_probabilities"]:
-            formatted_log += f"  {member}: {simulation_wrapper["metrics"]["individual_survival_probabilities"][member]} - {simulation_wrapper["metrics"]["individual_average_remaining_health"][member]}\n"
+        for member in individual_survival_probabilities:
+            formatted_log += f"  {member}: {individual_survival_probabilities[member]} - {individual_average_remaining_health[member]}\n"
         formatted_log += f"\n"
 
         return formatted_log
