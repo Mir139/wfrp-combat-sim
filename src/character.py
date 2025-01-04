@@ -74,12 +74,12 @@ class Character:
     def get_ranged_attack(self):
         return self.characteristics["CT"]+self.get_skill("Projectile")
     
-    def attack_enemy(self, enemy):
+    def attack_enemy(self, enemy, advantage_bonus_character, advantage_bonus_enemy):
         if self.engaged:
             attacker_roll = roll_d100()
             enemy_roll = roll_d100()
-            attacker_dr = calculate_dr(attacker_roll, self.get_melee_attack())
-            enemy_dr = calculate_dr(enemy_roll, enemy.get_melee_attack())
+            attacker_dr = calculate_dr(attacker_roll, self.get_melee_attack() + advantage_bonus_character)
+            enemy_dr = calculate_dr(enemy_roll, enemy.get_melee_attack() + advantage_bonus_enemy)
             if attacker_dr > enemy_dr:
                 damage, location = self.apply_damage(enemy, attacker_roll, attacker_dr)
                 return {"attack_roll": attacker_roll, "damage": damage, "enemy_roll": enemy_roll, "enemy_dr": enemy_dr, "attack_dr": attacker_dr, "location": location, "type": "melee"}
@@ -87,7 +87,7 @@ class Character:
                 return {"attack_roll": attacker_roll, "damage": 0, "enemy_roll": enemy_roll, "enemy_dr": enemy_dr, "attack_dr": attacker_dr, "type": "melee"}
         else:
             attacker_roll = roll_d100()
-            if attacker_roll <= self.get_ranged_attack():
+            if attacker_roll <= (self.get_ranged_attack() + advantage_bonus_character):
                 damage, location = self.apply_damage(enemy, attacker_roll, 0)
                 return {"attack_roll": attacker_roll, "damage": damage, "location": location, "type": "ranged"}
             else:

@@ -6,8 +6,10 @@ class Combat:
         self.faction1 = faction1
         self.faction2 = faction2
         self.action_log = []
-        self.engagements = {}
-        self.round_number = 0
+        self.engagements = {}  # Dictionnaire pour suivre les engagements
+        self.advantages = {}  # Dictionnaire pour suivre les points d'avantage
+        self.round_number = 0  # Compteur de rounds
+        self.advantages_max = 3  # Nombre maximum d'avantages
 
     def clean_character_engagement(self, character):
         engagements = self.engagements.get(character.name, [])
@@ -29,7 +31,9 @@ class Combat:
             return
         if not character.engaged:
             self.movement_phase(character)
-        self.action_phase(character)
+        action_log = self.action_phase(character)
+        if action_log:
+            self.determine_advantages(action_log)
 
     def movement_phase(self, character):
         if not character.engaged:
@@ -55,27 +59,31 @@ class Combat:
         if character.engaged:
             enemy = self.select_target(character, [self.find_character_by_name(enemy) for enemy in self.engagements.get(character.name)])
             if enemy and enemy.is_alive():
-                attack_result = character.attack_enemy(enemy)
-                self.action_log.append({
+                attack_result = character.attack_enemy(enemy, self.apply_advantage_bonus(character), self.apply_advantage_bonus(enemy))
+                action_log = {
                     "action": "attack",
                     "attacker": character.name,
                     "target": enemy.name,
                     "details": attack_result,
                     "enemy_health": enemy.health
-                })
+                }
+                self.action_log.append(action_log)
                 self.handle_target_death(character, enemy)
+                return action_log
         else:
             enemy, details = self.find_enemy(character)
             if enemy:
-                attack_result = character.attack_enemy(enemy)
-                self.action_log.append({
+                attack_result = character.attack_enemy(enemy, self.apply_advantage_bonus(character), self.apply_advantage_bonus(enemy))
+                action_log = {
                     "action": "ranged_attack",
                     "attacker": character.name,
                     "target": enemy.name,
                     "details": attack_result,
                     "enemy_health": enemy.health
-                })
+                }
+                self.action_log.append(action_log)
                 self.handle_target_death(character, enemy)
+                return action_log
     
     def handle_target_death(self, attacker, target):
         if not target.is_alive():
@@ -197,3 +205,18 @@ class Combat:
             return winner.name, survivors, remaining_health, self.action_log
         else:
             return None, survivors, remaining_health, self.action_log
+
+    def apply_advantage_bonus(self, character):
+        return self.advantages.get(character.name, 0) * 10
+
+    def determine_advantages(self, action):
+        if action['action'] == "attack":
+            if action['details']['attack_dr'] > action['details']['enemy_dr']:
+                self.advantages[action['attacker']] = min(self.advantages.get(action['attacker'], 0) + 1, self.advantages_max)
+                self.advantages[action['target']] = 0
+            else:
+                self.advantages[action['attacker']] = 0
+        elif action['action'] == "ranged_attack":
+            if action['details']['damage'] > 0:
+                self.advantages[action['attacker']] = min(self.advantages.get(action['attacker'], 0) + 1, self.advantages_max)
+                self.advantages[action['target']] = 0
