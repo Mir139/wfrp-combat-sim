@@ -6,7 +6,8 @@ class Combat:
         self.faction1 = faction1
         self.faction2 = faction2
         self.action_log = []
-        self.engagements = {}  # Dictionnaire pour suivre les engagements
+        self.engagements = {}
+        self.round_number = 0
 
     def clean_character_engagement(self, character):
         engagements = self.engagements.get(character.name, [])
@@ -185,6 +186,8 @@ class Combat:
     def run_combat(self):
         self.initiate_combat()
         while any(char.is_alive() for char in self.faction1.get_members()) and any(char.is_alive() for char in self.faction2.get_members()):
+            self.round_number += 1
+            self.action_log.append({"action": "new_round", "details": f"Round {self.round_number} begins."})
             for character in self.initiative_order:
                 self.resolve_turn(character)
         winner = self.determine_winner()
