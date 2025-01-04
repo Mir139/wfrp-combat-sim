@@ -22,12 +22,17 @@ class Character:
         self.faction = faction
         self.engaged = False
         self.PA = [0,0,0,0,0,0]
+        self.target_selection_priority = "random"
 
         if self.CC > self.CT:
             self.prefers_melee = True
         else:
             self.prefers_melee = False
 
+    def set_target_selection_priority(self, method):
+        if method:
+            self.target_selection_priority = method
+    
     def equip_weapon(self, weapon_name):
         weapon_type = self.inventory.equip_weapon(weapon_name)
         if weapon_type == 'melee_weapons':
