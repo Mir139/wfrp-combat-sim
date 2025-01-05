@@ -195,6 +195,17 @@ pytest tests/
    }
    ```
 
+## Work in progress
+The following features are partially implemented and need further work to fit the WFRP rule book:
+| Feature                  | Status       | Limitations                                                                 |
+|--------------------------|--------------|-----------------------------------------------------------------------------|
+| Character Management     | ![In Progress](https://img.shields.io/badge/status-in%20progress-yellow) | Limited to basic attributes, no advanced skills or traits |
+| Inventory System         | ![In Progress](https://img.shields.io/badge/status-in%20progress-yellow) | No support for magical items or item effects |
+| Turn-Based Combat        | ![In Progress](https://img.shields.io/badge/status-in%20progress-yellow) | -Target selection strategy (for engaging and attacking) is random.<br>-Spell selection for casters is random. Recommend to define only one attack spell for now. |
+| Faction Management       | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Not possible for a character to switch faction within a fight |
+| Simulation and Metrics   | ![Done](https://img.shields.io/badge/status-done-brightgreen) | |
+| Graphical User Interface | ![In Progress](https://img.shields.io/badge/status-in%20progress-yellow) | No database or job creation/edit tool available |
+
 ## Contributing
 Contributions are welcome! Please submit a pull request or open an issue for any enhancements or bug fixes.
 
