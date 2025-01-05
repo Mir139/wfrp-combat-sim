@@ -201,7 +201,7 @@ The following features are partially implemented and need further work to fit th
 |--------------------------|--------------|-----------------------------------------------------------------------------|
 | Character Management     | ![In Progress](https://img.shields.io/badge/status-in%20progress-yellow) | Limited to basic attributes, no advanced skills or traits |
 | Inventory System         | ![In Progress](https://img.shields.io/badge/status-in%20progress-yellow) | No support for magical items or item effects |
-| Turn-Based Combat        | ![In Progress](https://img.shields.io/badge/status-in%20progress-yellow) | -Target selection strategy (for engaging and attacking) is random.<br>-Spell selection for casters is random. Recommend to define only one attack spell for now. |
+| Turn-Based Combat        | ![In Progress](https://img.shields.io/badge/status-in%20progress-yellow) | Target selection strategy (for engaging and attacking) is random.<br>Spell selection for casters is random. Recommend to define only one attack spell for now.<br>Criticals and fumbles not handled.<br>Fight difficulty (i.e. based on size) not handled.<br>Ambidextrous fight not handled.<br>Reload mechanism for firearms not handled.|
 | Faction Management       | ![Done](https://img.shields.io/badge/status-done-brightgreen) | Not possible for a character to switch faction within a fight |
 | Simulation and Metrics   | ![Done](https://img.shields.io/badge/status-done-brightgreen) | |
 | Graphical User Interface | ![In Progress](https://img.shields.io/badge/status-in%20progress-yellow) | No database or job creation/edit tool available |
