@@ -69,7 +69,7 @@
     },
     "spells": [
         { "name": "Fléchette", "cast": "0", "range": "FM", "target": "1", "duration": "instant", "damage": "0" },
-        { "name": "Lumière", "cast": "0", "range": "0", "target": "Personnel", "duration": "FM", "damage": "none" },
+        { "name": "Lumière", "cast": "0", "range": "0", "target": "0", "duration": "FM", "damage": "none" },
         { "name": "Choc", "cast": "0", "range": "0", "target": "1", "duration": "instant", "damage": "none" }
     ]
 }

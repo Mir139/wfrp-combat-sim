@@ -1,7 +1,7 @@
 import json
 import warnings
 from character import Character
-from inventory import Inventory, MeleeWeapon, RangedWeapon, Armor
+from inventory import Inventory, MeleeWeapon, RangedWeapon, Armor, Spell
 from faction import Faction  # Import the Faction class
 
 def load_inventory(file_path):
@@ -44,6 +44,16 @@ def create_item(item_data, item_type):
         warnings.warn(f"Unknown item type: {item_type}")
         return None
 
+def create_spell(spell_data):
+    return Spell(
+        name=spell_data['name'],
+        cast=int(spell_data['cast']),
+        range=spell_data['range'],
+        target=spell_data['target'],
+        duration=spell_data['duration'],
+        damage= int(spell_data['damage']) if spell_data['damage'] != 'none' else None,
+    )
+
 def create_characters(factions_data, inventory_data):
     factions = []
     for faction_data in factions_data:
@@ -80,7 +90,9 @@ def create_characters(factions_data, inventory_data):
             for spell in member_data.get('spells', []):
                 spell_details = next((i for i in inventory_data['spells'] if i['name'] == spell), None)
                 if spell_details:
-                    character.add_spell(spell_details)
+                    spell_instance = create_spell(spell_details)
+                    if spell_instance:
+                        character.add_spell(spell_instance)
                 else:
                     warnings.warn(f"Spell '{spell}' not found in inventory data.")
             faction.add_member(character)

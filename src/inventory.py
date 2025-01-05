@@ -61,3 +61,12 @@ class Armor(Item):
         self.penalty = penalty
         self.location = location
         self.armor_points = armor_points
+
+class Spell:
+    def __init__(self, name, cast, range, target, duration, damage):
+        self.name = name
+        self.cast = cast
+        self.range = range
+        self.target = target
+        self.duration = duration
+        self.damage = damage

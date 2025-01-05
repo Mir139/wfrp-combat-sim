@@ -1,7 +1,7 @@
 import random
 from utils import calculate_dr, roll_d100
 from math import floor
-from inventory import Inventory  # Import the Inventory class
+from inventory import Inventory, Spell
 
 class Character:
     def __init__(self, name, health, M, CC, CT, F, E, I, Ag, Dex, Int, FM, Soc, faction):
@@ -44,11 +44,11 @@ class Character:
     def add_spell(self, spell):
         if spell:
             self.spells.append(spell)
-            if self.prefers_melee and spell["damage"] != "none":
+            if self.prefers_melee and not spell.damage is None:
                 self.prefers_melee = False
 
     def get_spell(self, spell_name):
-        return self.spells.get(spell_name, 0)
+        return [spell for spell in self.spells if spell.name == spell_name][0]
 
     def set_target_selection_priority(self, method):
         if method:
@@ -123,7 +123,7 @@ class Character:
 
     def apply_damage_spell(self, enemy, roll, dr, spell):
         location = self.determine_location(roll)
-        damage = int(spell["damage"]) + dr + self.BFM()
+        damage = spell.damage + dr + self.BFM()
         return enemy.take_damage(damage, location), location
     
     def determine_location(self, roll):
@@ -163,30 +163,34 @@ class Character:
         cast_roll = roll_d100()
         dr = calculate_dr(cast_roll, self.get_cast_skill())
         if cast_roll <= self.get_cast_skill():
-            if dr >= int(spell["cast"]) or focused:
-                damage, location = self.apply_damage_spell(enemy, cast_roll, dr, spell)
+            if dr >= spell.cast or focused:
+                if spell.damage:
+                    damage, location = self.apply_damage_spell(enemy, cast_roll, dr, spell)
+                else:
+                    damage = 0
+                    location = None
                 self.focused_spell = None
-                return {"spell_name": spell["name"], "attack_roll": cast_roll, "damage": damage, "attack_dr": dr, "location": location, "type": "spell_cast"}
+                return {"spell_name": spell.name, "attack_roll": cast_roll, "damage": damage, "attack_dr": dr, "location": location, "type": "spell_cast"}
         self.focused_spell = None
-        return {"spell_name": spell["name"], "attack_roll": cast_roll, "damage": 0, "attack_dr": dr, "type": "spell_cast"}
+        return {"spell_name": spell.name, "attack_roll": cast_roll, "damage": 0, "attack_dr": dr, "type": "spell_cast"}
     
     def focus_spell(self, spell):
         if not self.focused_spell:
-            self.focused_spell = {"name": spell["name"], "focus_bonus": 0, "ready": False}
-        elif self.focused_spell["name"] != spell["name"]:    
-            self.focused_spell = {"name": spell["name"], "focus_bonus": 0, "ready": False}
+            self.focused_spell = {"name": spell.name, "focus_bonus": 0, "ready": False}
+        elif self.focused_spell["name"] != spell.name:    
+            self.focused_spell = {"name": spell.name, "focus_bonus": 0, "ready": False}
         focus_roll = roll_d100()
         dr = calculate_dr(focus_roll, self.get_cast_skill())
         self.focused_spell["focus_bonus"] += dr
-        if self.focused_spell["focus_bonus"] >= int(spell["cast"]):
+        if self.focused_spell["focus_bonus"] >= spell.cast:
             self.focused_spell["ready"] = True
-        return {"spell_name": spell["name"], "focus_roll": focus_roll, "focus_bonus": dr, "ready": self.focused_spell["ready"], "type": "spell_focus"}
+        return {"spell_name": spell.name, "focus_roll": focus_roll, "focus_bonus": dr, "ready": self.focused_spell["ready"], "type": "spell_focus"}
 
     def select_spell_cast_or_focus(self, spell, enemy):
-        if int(spell["cast"]) > 0:
+        if spell.cast > 0:
             if not self.focused_spell:
                 return self.focus_spell(spell)
-            elif self.focused_spell["name"] != spell["name"]:
+            elif self.focused_spell["name"] != spell.name:
                 return self.focus_spell(spell)
             elif not self.focused_spell["ready"]:
                 return self.focus_spell(spell)
