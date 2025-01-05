@@ -21,11 +21,13 @@ class Character:
             "Soc": Soc
         }
         self.skills = {}
+        self.spells = []
         self.inventory = Inventory()  # Initialize inventory as an Inventory object
         self.faction = faction
         self.engaged = False
         self.PA = [0,0,0,0,0,0]
         self.target_selection_priority = "random"
+        self.focused_spell = None
 
         if self.characteristics["CC"] > self.characteristics["CT"]:
             self.prefers_melee = True
@@ -38,6 +40,15 @@ class Character:
 
     def get_skill(self, skill_name):
         return self.skills.get(skill_name, 0)
+    
+    def add_spell(self, spell):
+        if spell:
+            self.spells.append(spell)
+            if self.prefers_melee and spell["damage"] != "none":
+                self.prefers_melee = False
+
+    def get_spell(self, spell_name):
+        return self.spells.get(spell_name, 0)
 
     def set_target_selection_priority(self, method):
         if method:
@@ -110,6 +121,11 @@ class Character:
         damage = self.calculate_damage(weapon, dr)
         return enemy.take_damage(damage, location), location
 
+    def apply_damage_spell(self, enemy, roll, dr, spell):
+        location = self.determine_location(roll)
+        damage = int(spell["damage"]) + dr + self.BFM()
+        return enemy.take_damage(damage, location), location
+    
     def determine_location(self, roll):
         if roll == 100:
             return "Right Leg"
@@ -136,3 +152,45 @@ class Character:
     
     def BE(self):
         return floor(self.characteristics["E"]/10)
+    
+    def BFM(self):
+        return floor(self.characteristics["FM"]/10)
+    
+    def get_cast_skill(self):
+        return self.characteristics["I"] + self.get_skill("Langue (Magick)")
+
+    def cast_spell(self, spell, enemy, focused):
+        cast_roll = roll_d100()
+        dr = calculate_dr(cast_roll, self.get_cast_skill())
+        if cast_roll <= self.get_cast_skill():
+            if dr >= int(spell["cast"]) or focused:
+                damage, location = self.apply_damage_spell(enemy, cast_roll, dr, spell)
+                self.focused_spell = None
+                return {"spell_name": spell["name"], "attack_roll": cast_roll, "damage": damage, "attack_dr": dr, "location": location, "type": "spell_cast"}
+        self.focused_spell = None
+        return {"spell_name": spell["name"], "attack_roll": cast_roll, "damage": 0, "attack_dr": dr, "type": "spell_cast"}
+    
+    def focus_spell(self, spell):
+        if not self.focused_spell:
+            self.focused_spell = {"name": spell["name"], "focus_bonus": 0, "ready": False}
+        elif self.focused_spell["name"] != spell["name"]:    
+            self.focused_spell = {"name": spell["name"], "focus_bonus": 0, "ready": False}
+        focus_roll = roll_d100()
+        dr = calculate_dr(focus_roll, self.get_cast_skill())
+        self.focused_spell["focus_bonus"] += dr
+        if self.focused_spell["focus_bonus"] >= int(spell["cast"]):
+            self.focused_spell["ready"] = True
+        return {"spell_name": spell["name"], "focus_roll": focus_roll, "focus_bonus": dr, "ready": self.focused_spell["ready"], "type": "spell_focus"}
+
+    def select_spell_cast_or_focus(self, spell, enemy):
+        if int(spell["cast"]) > 0:
+            if not self.focused_spell:
+                return self.focus_spell(spell)
+            elif self.focused_spell["name"] != spell["name"]:
+                return self.focus_spell(spell)
+            elif not self.focused_spell["ready"]:
+                return self.focus_spell(spell)
+            else:
+                return self.cast_spell(spell, enemy, True)
+        else:
+            return self.cast_spell(spell, enemy, True)

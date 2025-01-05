@@ -73,14 +73,34 @@ class Combat:
         else:
             enemy, details = self.find_enemy(character)
             if enemy:
-                attack_result = character.attack_enemy(enemy, self.apply_advantage_bonus(character), self.apply_advantage_bonus(enemy))
-                action_log = {
-                    "action": "ranged_attack",
-                    "attacker": character.name,
-                    "target": enemy.name,
-                    "details": attack_result,
-                    "enemy_health": enemy.health
-                }
+                if not character.spells:
+                    attack_result = character.attack_enemy(enemy, self.apply_advantage_bonus(character), self.apply_advantage_bonus(enemy))
+                    action_log = {
+                        "action": "ranged_attack",
+                        "attacker": character.name,
+                        "target": enemy.name,
+                        "details": attack_result,
+                        "enemy_health": enemy.health
+                    }
+                else:
+                    spell = random.choice(list(character.spells))
+                    attack_result = character.select_spell_cast_or_focus(spell, enemy)
+                    if attack_result["type"] == "spell_cast":
+                        action_log = {
+                            "action": "spell_cast",
+                            "attacker": character.name,
+                            "target": enemy.name,
+                            "details": attack_result,
+                            "enemy_health": enemy.health
+                        }
+                    else:
+                        action_log = {
+                            "action": "spell_focus",
+                            "attacker": character.name,
+                            "target": enemy.name,
+                            "details": attack_result,
+                            "enemy_health": enemy.health
+                        }
                 self.action_log.append(action_log)
                 self.handle_target_death(character, enemy)
                 return action_log

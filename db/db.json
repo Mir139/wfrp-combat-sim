@@ -2,7 +2,7 @@
     "inventory": {
         "melee_weapons": [
             { "name": "(2M) Bâton de combat", "reach": "Longue", "damage": "4", "attributes": ["Assommante", "Defensive"], "encumbrance": "2", "2M": true },
-            { "name": "(2M) Hallebarde", "reach": "Longue", "damage": "4", "attributes": ["Defensive", "Taille", "Empaleuse"], "encumbrance": "3", "2M": true },
+            { "name": "(2M) Hallebarde", "reach": "Longue", "damage": "4", "attributes": ["Défensive", "Taille", "Empaleuse"], "encumbrance": "3", "2M": true },
             { "name": "(2M) Lance", "reach": "Très longue", "damage": "4", "attributes": ["Empaleuse"], "encumbrance": "2", "2M": true },
             { "name": "(2M) Pique", "reach": "Considérable", "damage": "4", "attributes": ["Empaleuse"], "encumbrance": "4", "2M": true },
             { "name": "Mains nues", "reach": "Personnelle", "damage": "0", "attributes": ["Inoffensive"], "encumbrance": "0", "2M": false },
@@ -29,7 +29,8 @@
             { "name": "Brise-épée", "reach": "Courte", "damage": "3", "attributes": ["Defensive", "Piège-lame"], "encumbrance": "1", "2M": false },
             { "name": "Main gauche", "reach": "Très courte", "damage": "2", "attributes": ["Défensive"], "encumbrance": "0", "2M": false },
             { "name": "(2M) Hache", "reach": "Longue", "damage": "4", "attributes": ["Percutante", "Taille"], "encumbrance": "2", "2M": true },
-            { "name": "Arme improvisée 9", "reach": "Courte", "damage": "9", "attributes": [], "encumbrance": "Variable", "2M": false }
+            { "name": "Arme improvisée 9", "reach": "Courte", "damage": "9", "attributes": [], "encumbrance": "Variable", "2M": false },
+            { "name": "Faux", "reach": "Longue", "damage": "6", "attributes": ["Dévastatrice"], "encumbrance": "Variable", "2M": false }
         ],
         "ranged_weapons": [
             { "name": "(2M) Arbalete", "range": "60", "damage": "9", "attributes": ["Recharge 1"], "encumbrance": "2", "2M": true, "range_BF": false, "damage_BF": false },
@@ -65,5 +66,10 @@
             { "name": "Armure lourde", "penalty": ["-20% Perception", "-20% Discrétion"], "location": "Tous", "armor_points": "3", "attributes": ["Impénétrable", "Points faibles"] },
             { "name": "Armure 2", "penalty": [], "location": "Tous", "armor_points": "2", "attributes": [""] }
         ]
-    }
+    },
+    "spells": [
+        { "name": "Fléchette", "cast": "0", "range": "FM", "target": "1", "duration": "instant", "damage": "0" },
+        { "name": "Lumière", "cast": "0", "range": "0", "target": "Personnel", "duration": "FM", "damage": "none" },
+        { "name": "Choc", "cast": "0", "range": "0", "target": "1", "duration": "instant", "damage": "none" }
+    ]
 }

@@ -188,14 +188,20 @@ class SimulationGUI:
                 tree.insert("", tk.END, values=("Attack", action['attacker'], action['target'], f"{action['details']['attack_roll']} | {action['details']['enemy_roll']}", f"{action['details']['attack_dr']} | {action['details']['enemy_dr']}", action['details']['damage'], action['enemy_health']), tags=('attack',))
             elif action['action'] == "ranged_attack":
                 tree.insert("", tk.END, values=("Ranged Attack", action['attacker'], action['target'], action['details']['attack_roll'], "", action['details']['damage'], action['enemy_health']), tags=('ranged_attack',))
+            elif action['action'] == "spell_cast":
+                tree.insert("", tk.END, values=("Spell Cast", action['attacker'], action['target'], action['details']['attack_roll'], action['details']['attack_dr'], action['details']['damage'], action['enemy_health']), tags=('spell_cast',))
+            elif action['action'] == "spell_focus":
+                tree.insert("", tk.END, values=("Spell Focus", action['attacker'], "", action['details']['focus_roll'], action['details']['focus_bonus'], "", ""), tags=('spell_focus',))
             elif action['action'] == "death":
                 tree.insert("", tk.END, values=("Death", "", action['target'], "", "", "", action['enemy_health']), tags=('death',))
 
-        tree.tag_configure('initiate_combat', background='lightblue')
+        tree.tag_configure('initiate_combat', background='white')
         tree.tag_configure('new_round', background='lightgreen')
         tree.tag_configure('engage', background='lightyellow')
         tree.tag_configure('attack', background='lightcoral')
         tree.tag_configure('ranged_attack', background='lightpink')
+        tree.tag_configure('spell_cast', background='lightblue')
+        tree.tag_configure('spell_focus', background='lightcyan')
         tree.tag_configure('death', background='lightgrey')
 
     def on_click(self, event):
