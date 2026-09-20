@@ -5,13 +5,17 @@ from src.rules import make_test, resolve_opposed, range_modifier
 
 LOCATIONS = ["Head", "Left Arm", "Right Arm", "Body", "Left Leg", "Right Leg"]
 
+TARGETING_STRATEGIES = ("nearest", "weakest", "dangerous", "random")
+ROUT_BEHAVIORS = ("flee", "surrender")
+
 STUNNED_PENALTY = -10
 PRONE_PENALTY = -20
 PRONE_TARGET_BONUS = 20
 
 
 class Character:
-    def __init__(self, name, health, M, CC, CT, F, E, I, Ag, Dex, Int, FM, Soc, faction, behavior=None):
+    def __init__(self, name, health, M, CC, CT, F, E, I, Ag, Dex, Int, FM, Soc, faction, behavior=None,
+                 targeting="nearest", on_rout=None, rout_threshold=0.25):
         self.name = name
         self.health = health
         self.M = M
@@ -28,7 +32,17 @@ class Character:
         self.inventory = Inventory()
         self.faction = faction
         self.behavior = behavior  # "melee", "ranged" or None (decided from the inventory)
-        self.position = 0  # yards along the line between the two sides
+        if targeting not in TARGETING_STRATEGIES:
+            raise ValueError(f"{name}: unknown targeting '{targeting}', expected one of {TARGETING_STRATEGIES}")
+        if on_rout is not None and on_rout not in ROUT_BEHAVIORS:
+            raise ValueError(f"{name}: unknown on_rout '{on_rout}', expected one of {ROUT_BEHAVIORS}")
+        self.targeting = targeting
+        self.on_rout = on_rout  # None: fights to the death
+        self.rout_threshold = rout_threshold  # fraction of max health that triggers a morale test
+        self.max_health = health
+        self.status = None  # None, "fled" or "surrendered"
+        self.morale_checked = set()
+        self.position = (0.0, 0.0)  # yards
         self.target = None
         self.bleeding = 0
         self.stunned = False
@@ -41,6 +55,30 @@ class Character:
 
     def is_alive(self):
         return self.health > 0
+
+    def is_active(self):
+        """Still in the fight: alive and neither fled nor surrendered."""
+        return self.is_alive() and self.status is None
+
+    def threat(self):
+        """Rough damage-per-attack potential, used by the 'dangerous' targeting strategy."""
+        melee = self.melee_weapon()
+        scores = [self.CC * (self.BF() + (melee.base_damage() if melee else 0))]
+        scores += [self.CT * (w.base_damage() + (self.BF() if w.damage_BF else 0)) for w in self.ranged_weapons()]
+        return max(scores)
+
+    def morale_triggers(self, active_allies, initial_allies):
+        """New reasons to test morale: badly wounded, or half of the faction is out of the fight."""
+        triggers = []
+        if self.health <= self.rout_threshold * self.max_health:
+            triggers.append("wounded")
+        if initial_allies >= 2 and active_allies * 2 <= initial_allies:
+            triggers.append("outnumbered")
+        return [t for t in triggers if t not in self.morale_checked]
+
+    def cool_test(self, rng=None):
+        """Sang-froid: a Willpower test."""
+        return make_test(self.FM, rng)
 
     def BF(self):
         return floor(self.F / 10)

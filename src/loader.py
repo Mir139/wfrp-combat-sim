@@ -65,7 +65,10 @@ def create_characters(factions_data, inventory_data):
                 FM=member_data['FM'],
                 Soc=member_data['Soc'],
                 faction=faction_data['name'],
-                behavior=member_data.get('behavior')
+                behavior=member_data.get('behavior'),
+                targeting=member_data.get('targeting', faction_data.get('targeting', 'nearest')),
+                on_rout=member_data.get('on_rout', faction_data.get('on_rout')),
+                rout_threshold=member_data.get('rout_threshold', faction_data.get('rout_threshold', 0.25))
             )
             for item in member_data['inventory']:
                 item_data = next((i for i in inventory_data[item['type']] if i['name'] == item['name']), None)

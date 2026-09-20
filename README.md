@@ -60,19 +60,22 @@ pytest
 
 ### Job file (`sim/*.json`)
 
-A job describes two factions and the simulation settings. Only the first two factions are fought.
+A job describes two or more factions and the simulation settings. Every faction fights every other one
+(free-for-all); the last faction with fighters left wins.
 
 | Field | Description |
 |---|---|
 | `factions[].name` | Faction name |
 | `factions[].members[]` | Characters (see below) |
+| `factions[].targeting`, `on_rout`, `rout_threshold` | Optional defaults for all members (see [Tactics](#tactics)) |
 | `simulation.num_simulations` | Number of fights to run |
 | `simulation.initial_distance` | Optional. Yards between the two sides at the start (default 12) |
 
 A character has a `name`, `health` (Wounds) and the characteristics `M`, `CC`, `CT`, `F`, `E`, `I`, `Ag`,
 `Dex`, `Int`, `FM`, `Soc`, plus an `inventory` referencing items of the database by `type` and `name`.
 The optional `behavior` field (`"melee"` or `"ranged"`) forces the fighting style; otherwise it is
-deduced from the equipment and from `CC` versus `CT`.
+deduced from the equipment and from `CC` versus `CT`. The optional `targeting`, `on_rout` and
+`rout_threshold` fields set the tactics and override the faction defaults.
 
 ```json
 {
@@ -96,6 +99,7 @@ deduced from the equipment and from `CC` versus `CT`.
             "members": [
                 {
                     "name": "Archer", "health": 12, "M": 4, "behavior": "ranged",
+                    "targeting": "weakest", "on_rout": "flee",
                     "CC": 30, "CT": 45, "F": 30, "E": 30, "I": 30, "Ag": 30,
                     "Dex": 30, "Int": 30, "FM": 30, "Soc": 30,
                     "inventory": [
@@ -121,8 +125,10 @@ Items are grouped under `melee_weapons`, `ranged_weapons` and `armors`.
 
 ## Rules
 
-Fighters act in Initiative order, each round, until one faction is dead. Combat is one-dimensional: the two
-sides start `initial_distance` yards apart and are *engaged* when within 2 yards of each other.
+Fighters act in Initiative order, each round, until a single faction has fighters left (a fight is a draw if
+nobody is left, or after 1000 rounds). Combat is on a plane: the factions start on the vertices of a regular
+polygon whose side is `initial_distance` yards (two factions simply face each other), all members of a faction
+sharing the same spot. Two fighters are *engaged* when within 2 yards of each other.
 
 **Tests.** Roll d100 against the target number. A roll of 5 or less always succeeds, 96 or more always
 fails. SL is the difference of the tens digits. A double is a critical on a success and a fumble on a failure.
@@ -160,7 +166,25 @@ in melee. The weapon used in melee is the harmful weapon with the highest damage
 | Bleeding | Lose 1 Wound per level at the start of each turn | Never (see limitations) |
 
 A critical hit ignores armor and inflicts Bleeding and Stunned. A melee fumble knocks the attacker prone; a
-ranged fumble jams the weapon. A fight is a draw after 1000 rounds.
+ranged fumble jams the weapon.
+
+### Tactics
+
+**Targeting.** Each fighter picks a target among the enemies still in the fight (or among the engaged ones once
+in melee) according to `targeting`; ties are broken randomly. The default is `nearest`.
+
+| Strategy | Target |
+|---|---|
+| `nearest` | Closest enemy |
+| `weakest` | Enemy with the fewest Wounds left |
+| `dangerous` | Enemy with the highest damage potential (skill × damage of their best weapon) |
+| `random` | Random enemy, kept until it is out of the fight |
+
+**Morale.** Fighters fight to the death unless `on_rout` is set to `"flee"` or `"surrender"`. They then take a
+Cool test (Willpower, `FM`) the first time they are wounded down to `rout_threshold` of their starting Wounds
+(default 0.25), and the first time half of their faction is dead or out of the fight. On a failure they leave the
+fight: they can no longer be attacked, but they are alive and count as survivors. The metrics report the chance
+of each character routing in `individual_rout_probabilities`.
 
 **Weapon attributes handled:** Défensive (+1 SL when parrying), Protectrice N, Précise, Imprécise,
 Assommante, Recharge N, Répétition N.
@@ -178,15 +202,19 @@ These are the points to check against the rulebook and the features not implemen
 - **Ranged fumbles** jam the weapon, which must then be fully reloaded.
 - **Range bands** and the ±20 / +40 modifiers are written from memory and may not match the book.
 - **Opposed tests**: a failed attacker always misses, even if the defender failed worse.
-- **Positioning** is one-dimensional: all fighters of a side share the same spot, so once melee starts everybody
-  is engaged with everybody.
+- **Positioning**: all fighters of a faction share the same spot, so once melee starts everybody is engaged with
+  everybody.
+- **Fleeing** is instantaneous: there is no pursuit, no free attack and no chance to be caught. A fighter who
+  surrenders is never harmed afterwards.
+- **Morale** is tested once per trigger, without modifiers (no Fear/Terror, no leader, no Stunned penalty).
+- **Factions** are all hostile to each other; there is no way to declare allies or a shared side.
 
 **Not implemented**
 - Weapon attributes: Empaleuse, Taille, Percutante, Dévastatrice, Pointue, Rapide, Lente, Immobilisante,
   Dangereuse, Explosion, Inoffensive (beyond choosing another weapon first).
 - Thrown weapons (knife, javelin, rock, bomb) have unlimited ammunition, and area effects are ignored.
 - Advantage, manoeuvres beyond parry/dodge, reach, two-handed/off-hand rules.
-- Targeting is random among living enemies, only two factions fight, and nobody flees or surrenders.
+- Retreating to fight another day, regrouping, and target choice based on cover or line of sight.
 
 ## Project structure
 
@@ -196,7 +224,7 @@ sim/job1.json         example job
 src/
   rules.py            tests, opposed tests, range modifiers
   character.py        characteristics, states, weapon choice, attacks
-  combat.py           one fight: movement, actions, log, winner
+  combat.py           one fight: placement, movement, targeting, morale, actions, log, winner
   simulation.py       many fights, metrics
   inventory.py        items, armor points, reloading
   loader.py           JSON -> characters

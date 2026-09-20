@@ -185,7 +185,7 @@ class SimulationGUI:
                 tree.insert("", tk.END, values=("Engage", action['attacker'], action['target'], "", "", "", ""))
             elif action['action'] == "attack":
                 tree.insert("", tk.END, values=("Attack", action['attacker'], action['target'], f"{action['details']['attack_roll']} | {action['details']['enemy_roll']}", f"{action['details']['attack_dr']} | {action['details']['enemy_dr']}", action['details']['damage'], action['enemy_health']))
-            elif action['action'] in ("move", "run", "stand_up", "reload", "bleed"):
+            elif action['action'] in ("move", "run", "stand_up", "reload", "bleed", "rout"):
                 tree.insert("", tk.END, values=(action['action'].replace("_", " ").title(), action['attacker'], action['target'] if action['target'] != action['attacker'] else "", "", "", action.get('details', {}).get('damage', ""), action.get('enemy_health', "")))
             elif action['action'] == "ranged_attack":
                 tree.insert("", tk.END, values=("Ranged Attack", action['attacker'], action['target'], action['details']['attack_roll'], "", action['details']['damage'], action['enemy_health']))

@@ -8,6 +8,7 @@ class ScriptedRng:
 
     def __init__(self, values):
         self.values = list(values)
+        self.choices = []
 
     def randint(self, a, b):
         return self.values.pop(0)
@@ -16,9 +17,9 @@ class ScriptedRng:
         return seq[0]
 
 
-def make_character(name="Hero", faction="F1", health=10, CC=50, CT=30, F=40, E=30, I=30, Ag=30, M=4,
-                   weapon_damage=4, weapon_attributes=(), behavior=None, unarmed=False):
-    c = Character(name, health, M, CC, CT, F, E, I, Ag, 30, 30, 30, 30, faction, behavior=behavior)
+def make_character(name="Hero", faction="F1", health=10, CC=50, CT=30, F=40, E=30, I=30, Ag=30, M=4, FM=30,
+                   weapon_damage=4, weapon_attributes=(), behavior=None, unarmed=False, **options):
+    c = Character(name, health, M, CC, CT, F, E, I, Ag, 30, 30, FM, 30, faction, behavior=behavior, **options)
     if not unarmed:
         c.inventory.add_item(MeleeWeapon("Epee", "Moyenne", str(weapon_damage), list(weapon_attributes), "1"))
     return c

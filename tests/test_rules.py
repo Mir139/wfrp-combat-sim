@@ -288,7 +288,7 @@ def test_best_melee_weapon_is_the_harmful_one_with_most_damage():
 # --- combat: movement, range, states ----------------------------------------
 
 def _duel(attacker, defender, distance=12, rng=None):
-    return Combat(make_faction("F1", attacker), make_faction("F2", defender), rng or random.Random(0), distance)
+    return Combat([make_faction("F1", attacker), make_faction("F2", defender)], rng or random.Random(0), distance)
 
 
 def test_melee_fighter_far_away_runs_without_attacking():
@@ -314,7 +314,7 @@ def test_archer_shoots_from_where_they_stand_when_in_range():
     combat = _duel(archer, d, distance=12)
     combat.resolve_turn(archer)
     assert [e["action"] for e in combat.action_log] == ["ranged_attack"]
-    assert archer.position == 0
+    assert archer.position == (0.0, 0.0)
 
 
 def test_archer_out_of_range_walks_closer_then_shoots():
@@ -391,7 +391,7 @@ def test_combat_is_deterministic_with_a_seed():
     def run(seed):
         a = make_faction("F1", make_character("A", health=15))
         b = make_faction("F2", make_character("B", faction="F2", health=15))
-        return Combat(a, b, random.Random(seed)).run_combat()
+        return Combat([a, b], random.Random(seed)).run_combat()
 
     assert run(42) == run(42)
 
@@ -401,7 +401,7 @@ def test_remaining_health_is_keyed_by_name_not_position():
     hero = make_character("Hero", health=50, CC=99, I=40)
     foe = make_character("Foe", faction="F2", health=50, CC=1, I=10)
     tank.health = 0
-    combat = Combat(make_faction("F1", tank, hero), make_faction("F2", foe), random.Random(0))
+    combat = Combat([make_faction("F1", tank, hero), make_faction("F2", foe)], random.Random(0))
     winner, survivors, remaining, _ = combat.run_combat()
     assert winner == "F1"
     assert survivors == ["Hero"]
@@ -413,7 +413,7 @@ def test_draw_does_not_crash():
     b = make_character("B", faction="F2", health=10)
     a.health = 0
     b.health = 0
-    combat = Combat(make_faction("F1", a), make_faction("F2", b))
+    combat = Combat([make_faction("F1", a), make_faction("F2", b)])
     assert combat.run_combat()[:3] == (None, [], {})
 
 
