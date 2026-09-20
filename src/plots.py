@@ -11,16 +11,17 @@ from matplotlib.figure import Figure
 from matplotlib.patches import Patch, Rectangle
 
 from src.character import LOCATIONS
+from src.palette import LIGHT
 from src.report import health_histogram
 
-SURFACE = "#fcfcfb"
-INK = "#0b0b0b"
-INK_SECONDARY = "#52514e"
-INK_MUTED = "#898781"
-GRID = "#e1e0d9"
-AXIS = "#c3c2b7"
-SERIES = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7", "#e34948"]
-SEQUENTIAL = ["#cde2fb", "#9ec5f4", "#6da7ec", "#3987e5", "#256abf", "#184f95", "#0d366b"]
+SURFACE = LIGHT.surface
+INK = LIGHT.ink
+INK_SECONDARY = LIGHT.ink_secondary
+INK_MUTED = LIGHT.ink_muted
+GRID = LIGHT.grid
+AXIS = LIGHT.axis
+SERIES = list(LIGHT.series)
+SEQUENTIAL = list(LIGHT.sequential)
 SEQUENTIAL_MAP = LinearSegmentedColormap.from_list("blue", SEQUENTIAL)
 
 FONT = 9
@@ -216,7 +217,7 @@ def plot_hit_locations(metrics, measure="hits"):
     for spine in bar.spines.values():
         spine.set_visible(False)
     what = "damage" if key == "damage" else "hits"
-    _title(fig, f"Where the {what} land", f"Share of the {what} taken by each character, by body location")
+    _title(fig, f"Where the {what} {'lands' if key == 'damage' else 'land'}", f"Share of the {what} taken by each character, by body location")
     return fig
 
 
@@ -254,3 +255,16 @@ def save_plots(metrics, directory):
         figure.savefig(path, facecolor=SURFACE, bbox_inches="tight", pad_inches=0.15)
         paths.append(path)
     return paths
+
+
+def charts_zip(metrics):
+    """The standard charts as PNG files in a zip archive (bytes)."""
+    import io
+    import zipfile
+    archive = io.BytesIO()
+    with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as zipped:
+        for name, figure in all_figures(metrics).items():
+            image = io.BytesIO()
+            figure.savefig(image, format="png", facecolor=SURFACE, bbox_inches="tight", pad_inches=0.15)
+            zipped.writestr(f"{name}.png", image.getvalue())
+    return archive.getvalue()
