@@ -25,6 +25,7 @@ def simulate_battle(factions, seed, distance, keep_log):
         "routed": combat.determine_routed(),
         "rounds": combat.rounds,
         "deaths": combat.deaths,
+        "hits": combat.hits,
         "action_log": action_log if keep_log else None,
     }
 
@@ -70,6 +71,7 @@ class Simulation:
 
         Probabilities come with a Wilson confidence interval in `confidence_intervals`.
         `remaining_health_distribution` counts, per character, the final health over all fights (dead = 0).
+        `hit_locations` gives, per character and body location, the total hits taken and damage suffered.
         """
         total = len(results)
         interval = lambda count: wilson_interval(count, total, confidence)
@@ -86,6 +88,7 @@ class Simulation:
             "first_death_probabilities": {},
             "remaining_health_distribution": {},
             "members": {},
+            "hit_locations": {},
             "rounds": {},
             "confidence_intervals": {"survival_probabilities": {}, "individual_survival_probabilities": {},
                                      "individual_death_probabilities": {}, "first_death_probabilities": {}},
@@ -96,6 +99,14 @@ class Simulation:
         rounds = [r["rounds"] for r in results if "rounds" in r]
         if rounds:
             metrics["rounds"] = {"mean": mean(rounds), "median": median(rounds), "min": min(rounds), "max": max(rounds)}
+        hit_totals = {}
+        for result in results:
+            for name, locations in result.get("hits", {}).items():
+                totals = hit_totals.setdefault(name, {})
+                for location, (count, damage) in locations.items():
+                    entry = totals.setdefault(location, {"hits": 0, "damage": 0})
+                    entry["hits"] += count
+                    entry["damage"] += damage
         first_deaths = Counter(r["deaths"][0] for r in results if r.get("deaths"))
 
         for faction in self.factions:
@@ -115,6 +126,7 @@ class Simulation:
                 metrics["individual_average_remaining_health"][name] = sum(alive) / len(alive) if alive else 0
                 metrics["individual_rout_probabilities"][name] = sum(1 for r in results if name in r.get('routed', {})) / total
                 metrics["first_death_probabilities"][name] = first_deaths[name] / total
+                metrics["hit_locations"][name] = hit_totals.get(name, {})
                 metrics["remaining_health_distribution"][name] = dict(sorted(Counter(max(r['remaining_health'].get(name, 0), 0) for r in results).items()))
                 intervals["individual_survival_probabilities"][name] = interval(len(alive))
                 intervals["individual_death_probabilities"][name] = interval(deaths)

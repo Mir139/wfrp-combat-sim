@@ -14,6 +14,7 @@ class Combat:
         self.action_log = []
         self.rounds = 0
         self.deaths = []  # names, in order of death
+        self.hits = {}  # target name -> location -> [number of hits, damage taken]
         self.faction_of = {id(m): f for f in self.factions for m in f.get_members()}
         self.initial_size = {id(f): len(f.get_members()) for f in self.factions}
         for faction, position in zip(self.factions, self.starting_positions(len(self.factions), distance)):
@@ -133,6 +134,7 @@ class Combat:
 
     def melee_attack(self, character, enemy):
         result = character.melee_attack(enemy, self.rng)
+        self.record_hit(enemy, result)
         self.action_log.append({
             "action": "attack",
             "attacker": character.name,
@@ -143,6 +145,7 @@ class Combat:
 
     def ranged_attack(self, character, enemy, weapon):
         result = character.ranged_attack(enemy, weapon, self.distance(character, enemy), self.rng)
+        self.record_hit(enemy, result)
         self.action_log.append({
             "action": "ranged_attack",
             "attacker": character.name,
@@ -150,6 +153,12 @@ class Combat:
             "details": result,
             "enemy_health": enemy.health,
         })
+
+    def record_hit(self, target, result):
+        if result["damage"] > 0:
+            entry = self.hits.setdefault(target.name, {}).setdefault(result["location"], [0, 0])
+            entry[0] += 1
+            entry[1] += result["damage"]
 
     def reload(self, character):
         weapon = character.weapon_to_reload()
