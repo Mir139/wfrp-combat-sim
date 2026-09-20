@@ -9,8 +9,8 @@ The rules are a **simplified** version of WFRP 4e: see [Rules](#rules) for what 
 
 ## Installation
 
-Developed and tested with Python 3.14. The GUI needs Tkinter (a system package on some Linux distributions,
-e.g. `python3-tk`); the charts need matplotlib, which `requirements.txt` installs.
+Developed and tested with Python 3.14. `requirements.txt` installs everything: NiceGUI (the web interface),
+matplotlib (PNG charts) and pytest.
 
 ```
 git clone https://github.com/Mir139/wfrp-combat-sim.git
@@ -42,24 +42,30 @@ python -m src.simulation sim/job1.json -n 10000 --seed 1 -j 0
 | `--plots DIR` | Save the charts as PNG files in `DIR` (with `--compare`: one comparison chart per faction) |
 | `--json FILE` / `--csv FILE` | Export the metrics (CSV: one row per character, or per scenario and faction with `--compare`) |
 
-**GUI** (Tkinter, three panels):
+**GUI** (web interface): a local web application that opens in your browser, with a light and a dark theme:
 
 ```
-python -m src.gui
+python -m src.gui                  # opens http://localhost:8080
+python -m src.gui --port 9000 --no-browser
 ```
 
-- **Factions**: edit the job. Add, duplicate and remove factions and characters, edit their characteristics,
-  tactics (fighting style, targeting, rout) and inventory, open and save job files. *Import characters* reads a
-  single character, a list, a faction or a whole job file, lets you choose which ones to add, and warns about
-  items missing from the database.
-- **Items**: browse, search and edit the item database (weapons and armors), open and save it. Deleting an item
-  warns when characters use it.
-- **Results**: set the number of combats, the distance and an optional seed, run, and browse the runs. Each run
-  shows the text report and one of five charts (see [Charts](#charts)), lets you replay the log of any of the
-  first 100 fights, and exports the charts, the JSON and the CSV. A job with problems (missing field, unknown
-  item, duplicate name) is refused with the list of problems.
+- **Factions**: edit the job live. Add, duplicate and remove factions and characters, edit their characteristics,
+  tactics (fighting style, targeting, rout) and inventory. *Open* loads a job from the `sim/` folder or uploads
+  one; *Save* writes it to `sim/` or downloads it. *Import characters* uploads a single character, a list, a
+  faction or a whole job file, lets you choose which ones to add and into which faction, and warns about items
+  missing from the database.
+- **Items**: browse, search, add, edit and delete the items of the database (weapons and armors), open and save
+  it. Deleting an item warns when characters use it.
+- **Results**: set the number of combats, the distance and an optional seed, then run. The simulation runs in the
+  background on all the CPU cores with a progress bar, so the page stays responsive. Each run shows the win
+  chances, the combat length, and tabs with interactive charts (hover a row for the exact figures and the
+  confidence interval), a table of the characters, and the replay of any of the first 100 fights. The JSON, the
+  CSV and the PNG charts can be downloaded. A job with problems (missing field, unknown item, duplicate name) is
+  refused with the list of problems.
 
-The default job and database are loaded at start-up. A run of 10000 combats blocks the window for a few seconds.
+The default job and database are loaded at start-up. The state (job, database, runs) lives in the server process,
+so reloading the page keeps it. The server listens on `127.0.0.1` only unless you pass `--host`; there is no
+authentication, so do not expose it on a network you do not trust.
 
 **From Python**: pass a seed to get reproducible results. When you use `workers` above 1, the script must be
 guarded by `if __name__ == "__main__":`, because worker processes re-import it.
@@ -101,7 +107,9 @@ the first 100 fights keep their action log, to bound the memory use.
 
 ### Charts
 
-`--plots` and the GUI draw (matplotlib; one colour per faction, kept whatever is displayed):
+The GUI draws interactive charts (Apache ECharts, light and dark themes), and `--plots` (or the *Charts (PNG)*
+download of the GUI) writes the same charts as PNG files with matplotlib. One colour per faction, kept whatever is
+displayed:
 
 - **Chance of winning** per faction, and **chance of surviving** per character, as bars with their confidence
   whiskers and the value at the tip.
@@ -307,7 +315,7 @@ These are the points to check against the rulebook and the features not implemen
 - Advantage, manoeuvres beyond parry/dodge, reach, two-handed/off-hand rules.
 - Import of character sheets from Foundry VTT or the WFRP GM Toolkit (only this project's own JSON is read, see
   `import_characters`), and a graphical editor for comparison files (they are written by hand).
-- A dark theme for the charts, and progress display for long runs in the GUI.
+- The PNG charts have no dark theme, and the GUI has no editor for comparison files (run them with `--compare`).
 - Retreating to fight another day, regrouping, and target choice based on cover or line of sight.
 
 ## Project structure
@@ -325,9 +333,12 @@ src/
   compare.py          what-if variants and sweeps
   report.py           text, JSON and CSV output
   cli.py              command line (python -m src.simulation)
-  plots.py            matplotlib charts
+  plots.py            matplotlib charts (PNG export)
+  echarts.py          interactive charts as ECharts options (GUI)
+  palette.py          light and dark colour sets shared by both
+  database.py         item database schema and validation
   jobs.py             job validation, blank characters, import of characters
-  gui/                Tkinter interface: __init__ (application), factions, items, results
+  gui/                NiceGUI web interface: app, state, factions, items, results
   inventory.py        items, armor points, reloading
   loader.py           JSON -> characters
   faction.py          group of characters
