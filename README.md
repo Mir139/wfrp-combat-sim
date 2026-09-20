@@ -9,7 +9,8 @@ The rules are a **simplified** version of WFRP 4e: see [Rules](#rules) for what 
 
 ## Installation
 
-Requires Python 3.12 or later (the GUI uses nested f-string quotes).
+Developed and tested with Python 3.14. The GUI needs Tkinter (a system package on some Linux distributions,
+e.g. `python3-tk`); the charts need matplotlib, which `requirements.txt` installs.
 
 ```
 git clone https://github.com/Mir139/wfrp-combat-sim.git
@@ -38,14 +39,27 @@ python -m src.simulation sim/job1.json -n 10000 --seed 1 -j 0
 | `--confidence C` | Confidence level of the intervals (default 0.95) |
 | `--histogram` | Also print the remaining-health histogram of every character |
 | `--compare FILE` | What-if analysis, see [Comparing scenarios](#comparing-scenarios) |
+| `--plots DIR` | Save the charts as PNG files in `DIR` (with `--compare`: one comparison chart per faction) |
 | `--json FILE` / `--csv FILE` | Export the metrics (CSV: one row per character, or per scenario and faction with `--compare`) |
 
-**GUI** (Tkinter): pick the database and job files, set the number of simulations, run, then browse
-the metrics of each job and replay the log of any of the first 100 fights:
+**GUI** (Tkinter, three panels):
 
 ```
 python -m src.gui
 ```
+
+- **Factions**: edit the job. Add, duplicate and remove factions and characters, edit their characteristics,
+  tactics (fighting style, targeting, rout) and inventory, open and save job files. *Import characters* reads a
+  single character, a list, a faction or a whole job file, lets you choose which ones to add, and warns about
+  items missing from the database.
+- **Items**: browse, search and edit the item database (weapons and armors), open and save it. Deleting an item
+  warns when characters use it.
+- **Results**: set the number of combats, the distance and an optional seed, run, and browse the runs. Each run
+  shows the text report and one of five charts (see [Charts](#charts)), lets you replay the log of any of the
+  first 100 fights, and exports the charts, the JSON and the CSV. A job with problems (missing field, unknown
+  item, duplicate name) is refused with the list of problems.
+
+The default job and database are loaded at start-up. A run of 10000 combats blocks the window for a few seconds.
 
 **From Python**: pass a seed to get reproducible results. When you use `workers` above 1, the script must be
 guarded by `if __name__ == "__main__":`, because worker processes re-import it.
@@ -84,6 +98,18 @@ pytest
 
 Ten thousand fights of the example job take about 3 seconds on one core, and under a second on several. Only
 the first 100 fights keep their action log, to bound the memory use.
+
+### Charts
+
+`--plots` and the GUI draw (matplotlib; one colour per faction, kept whatever is displayed):
+
+- **Chance of winning** per faction, and **chance of surviving** per character, as bars with their confidence
+  whiskers and the value at the tip.
+- **Remaining Wounds**: for each character, the share of combats ending with each amount of Wounds.
+- **Where the hits land** (and **where the damage lands**): a heatmap of the share of the hits (or the damage)
+  each character takes on each body location. The raw counts are in `hit_locations` in the metrics.
+- **Comparison** (`--compare --plots`): the chance of winning of a faction across the scenarios, with the change
+  against the base scenario.
 
 ### Comparing scenarios
 
@@ -279,7 +305,9 @@ These are the points to check against the rulebook and the features not implemen
   Dangereuse, Explosion, Inoffensive (beyond choosing another weapon first).
 - Thrown weapons (knife, javelin, rock, bomb) have unlimited ammunition, and area effects are ignored.
 - Advantage, manoeuvres beyond parry/dodge, reach, two-handed/off-hand rules.
-- Plots (the histograms are text), importing character sheets, a graphical editor for jobs and comparisons.
+- Import of character sheets from Foundry VTT or the WFRP GM Toolkit (only this project's own JSON is read, see
+  `import_characters`), and a graphical editor for comparison files (they are written by hand).
+- A dark theme for the charts, and progress display for long runs in the GUI.
 - Retreating to fight another day, regrouping, and target choice based on cover or line of sight.
 
 ## Project structure
@@ -297,11 +325,13 @@ src/
   compare.py          what-if variants and sweeps
   report.py           text, JSON and CSV output
   cli.py              command line (python -m src.simulation)
+  plots.py            matplotlib charts
+  jobs.py             job validation, blank characters, import of characters
+  gui/                Tkinter interface: __init__ (application), factions, items, results
   inventory.py        items, armor points, reloading
   loader.py           JSON -> characters
   faction.py          group of characters
   utils.py            dice helpers
-  gui.py              Tkinter interface
 tests/                pytest suite
 ```
 
