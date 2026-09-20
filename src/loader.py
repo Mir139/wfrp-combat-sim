@@ -1,8 +1,8 @@
 import json
 import warnings
-from character import Character
-from inventory import Inventory, MeleeWeapon, RangedWeapon, Armor
-from faction import Faction  # Import the Faction class
+from src.character import Character
+from src.inventory import Inventory, MeleeWeapon, RangedWeapon, Armor
+from src.faction import Faction  # Import the Faction class
 
 def load_inventory(file_path):
     with open(file_path, 'r', encoding='utf-8') as file:
@@ -30,7 +30,8 @@ def create_item(item_data, item_type):
             damage=item_data['damage'],
             attributes=item_data['attributes'],
             encumbrance=item_data['encumbrance'],
-            damage_BF=item_data.get('damage_BF', False)
+            damage_BF=item_data.get('damage_BF', False),
+            range_BF=item_data.get('range_BF', False)
         )
     elif item_type == 'armors':
         return Armor(
@@ -63,7 +64,11 @@ def create_characters(factions_data, inventory_data):
                 Int=member_data['Int'],
                 FM=member_data['FM'],
                 Soc=member_data['Soc'],
-                faction=faction_data['name']
+                faction=faction_data['name'],
+                behavior=member_data.get('behavior'),
+                targeting=member_data.get('targeting', faction_data.get('targeting', 'nearest')),
+                on_rout=member_data.get('on_rout', faction_data.get('on_rout')),
+                rout_threshold=member_data.get('rout_threshold', faction_data.get('rout_threshold', 0.25))
             )
             for item in member_data['inventory']:
                 item_data = next((i for i in inventory_data[item['type']] if i['name'] == item['name']), None)

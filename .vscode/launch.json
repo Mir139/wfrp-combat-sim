@@ -9,13 +9,13 @@
             "name": "Débogueur Python : Module",
             "type": "debugpy",
             "request": "launch",
-            "module": "__main__"
+            "module": "src.gui"
         },
         {
             "name": "Débogueur Python : Fichier",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/src/simulation.py",
+            "module": "src.simulation",
             "console": "integratedTerminal"
         }
     ]
