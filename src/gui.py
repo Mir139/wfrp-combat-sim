@@ -3,7 +3,8 @@ from tkinter import filedialog, messagebox, Toplevel, Text
 from tkinter.ttk import Combobox, Treeview, Scrollbar
 import json
 from src.combat import DEFAULT_DISTANCE
-from src.simulation import Simulation
+from src.simulation import DEFAULT_KEEP_LOGS, DEFAULT_NUM_SIMULATIONS, Simulation
+from src.report import pct, pct_interval
 from src.loader import load_inventory, load_simulation_config, create_characters
 
 class SimulationGUI:
@@ -13,7 +14,7 @@ class SimulationGUI:
         
         self.job1_path = tk.StringVar()
         self.db_path = tk.StringVar()
-        self.num_simulations = tk.IntVar(value=100)
+        self.num_simulations = tk.IntVar(value=DEFAULT_NUM_SIMULATIONS)
         self.simulation_results = []
         
         self.create_widgets()
@@ -27,7 +28,7 @@ class SimulationGUI:
         tk.Entry(self.root, textvariable=self.db_path, width=50).grid(row=1, column=1)
         tk.Button(self.root, text="Browse", command=self.browse_db).grid(row=1, column=2)
         
-        tk.Label(self.root, text="Number of Simulations:").grid(row=2, column=0, sticky=tk.W)
+        tk.Label(self.root, text=f"Number of Simulations (logs kept for the first {DEFAULT_KEEP_LOGS}):").grid(row=2, column=0, sticky=tk.W)
         tk.Entry(self.root, textvariable=self.num_simulations, width=10).grid(row=2, column=1, sticky=tk.W)
         
         tk.Button(self.root, text="Run Simulation", command=self.run_simulation).grid(row=3, column=0, columnspan=3)
@@ -99,7 +100,8 @@ class SimulationGUI:
             sim_results = sim.run_simulation(num_simulations)
             simulation_wrapper = {
                 "results": sim_results,
-                "metrics": sim.gather_metrics(sim_results)
+                "metrics": sim.gather_metrics(sim_results),
+                "logs": sum(1 for r in sim_results if r["action_log"] is not None)
             }
 
             survival_probabilities = self.format_decimals(simulation_wrapper["metrics"]["survival_probabilities"].items(), 2)
@@ -117,7 +119,7 @@ class SimulationGUI:
             self.global_tree.selection_set(last_inserted_job)
 
             # Update the simulation selector
-            self.update_simulation_selector(simulation_wrapper["metrics"]["total_battles"])
+            self.update_simulation_selector(simulation_wrapper["logs"])
         except Exception as e:
             messagebox.showerror("Error", f"Failed to run simulation: {e}")
     
@@ -193,8 +195,8 @@ class SimulationGUI:
     def on_click(self, event):
         #item = self.global_tree.selection()[0]
         item = self.global_tree.focus()
-        num_simulations = int(self.global_tree.item(item, "values")[2])
-        self.update_simulation_selector(num_simulations)
+        job_id = int(self.global_tree.item(item, "values")[0])
+        self.update_simulation_selector(self.simulation_results[job_id]["logs"])
 
     def on_double_click(self, event):
         item = self.global_tree.selection()[0]
@@ -217,22 +219,27 @@ class SimulationGUI:
         text.insert(tk.END, formatted_log)
 
     def format_job_result(self, simulation_wrapper):
-        survival_probabilities = self.format_decimals(simulation_wrapper["metrics"]["survival_probabilities"].items(), 2)
-        individual_survival_probabilities = self.format_decimals(simulation_wrapper["metrics"]["individual_survival_probabilities"].items(), 2)
-        individual_average_remaining_health = self.format_decimals(simulation_wrapper["metrics"]["individual_average_remaining_health"].items(), 2)
-        formatted_log = ""
-        formatted_log += f"Total battles: {simulation_wrapper["metrics"]["total_battles"]}\n"
-        formatted_log += f"Survival probabilities:\n"
-        for faction in survival_probabilities:
-            formatted_log += f"  {faction}: {survival_probabilities[faction]}\n"
-        formatted_log += f"\n"
-        formatted_log += f"Individual survival probabilities / Average remaining health:\n"
-        for member in individual_survival_probabilities:
-            formatted_log += f"  {member}: {individual_survival_probabilities[member]} - {individual_average_remaining_health[member]}\n"
-        formatted_log += f"\n"
+        metrics = simulation_wrapper["metrics"]
+        intervals = metrics["confidence_intervals"]
+        level = int(round(100 * metrics["confidence_level"]))
+        formatted_log = f"Total battles: {metrics['total_battles']} ({level}% confidence intervals in brackets)\n"
+        if metrics["rounds"]:
+            formatted_log += f"Rounds per combat: mean {metrics['rounds']['mean']:.1f}, max {metrics['rounds']['max']}\n"
+        formatted_log += f"Draws: {metrics['draws']}\n\n"
+        formatted_log += "Chance of winning:\n"
+        for faction, p in metrics["survival_probabilities"].items():
+            formatted_log += f"  {faction}: {pct(p)} {pct_interval(intervals['survival_probabilities'][faction])}\n"
+        formatted_log += "\nSurvival / Death / Falls first / Average remaining health:\n"
+        for member in metrics["individual_survival_probabilities"]:
+            formatted_log += (f"  {member}: {pct(metrics['individual_survival_probabilities'][member])} "
+                              f"{pct_interval(intervals['individual_survival_probabilities'][member])}"
+                              f" - {pct(metrics['individual_death_probabilities'][member])}"
+                              f" - {pct(metrics['first_death_probabilities'][member])}"
+                              f" - {metrics['individual_average_remaining_health'][member]:.1f}\n")
+        formatted_log += "\n"
 
         return formatted_log
-    
+
 if __name__ == "__main__":
     root = tk.Tk()
     app = SimulationGUI(root)

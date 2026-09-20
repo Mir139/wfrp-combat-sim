@@ -1,0 +1,12 @@
+{
+    "variants": [
+        { "name": "Molrella en armure lourde", "add_items": [{ "member": "Molrella Tuilecaramel", "type": "armors", "name": "Armure lourde" }] },
+        { "name": "Sans Else", "remove_members": ["Else Sigloben"] },
+        { "name": "Ennemi cible le plus faible", "faction_set": { "Faction2": { "targeting": "weakest" } } },
+        { "name": "Combat à 30 yards", "simulation": { "initial_distance": 30 } }
+    ],
+    "sweeps": [
+        { "copy_member": "Terreur de la Teufel", "counts": [1, 2, 3] },
+        { "member": "Terreur de la Teufel", "field": "CC", "values": [50, 70] }
+    ]
+}
