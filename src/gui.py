@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, Toplevel, Text
 from tkinter.ttk import Combobox, Treeview, Scrollbar
 import json
+from src.combat import DEFAULT_DISTANCE
 from src.simulation import Simulation
 from src.loader import load_inventory, load_simulation_config, create_characters
 
@@ -94,7 +95,7 @@ class SimulationGUI:
             factions = create_characters(config_data['factions'], inventory_data)
             num_simulations = self.num_simulations.get()
 
-            sim = Simulation(factions)
+            sim = Simulation(factions, initial_distance=config_data['simulation'].get('initial_distance', DEFAULT_DISTANCE))
             sim_results = sim.run_simulation(num_simulations)
             simulation_wrapper = {
                 "results": sim_results,
@@ -184,6 +185,8 @@ class SimulationGUI:
                 tree.insert("", tk.END, values=("Engage", action['attacker'], action['target'], "", "", "", ""))
             elif action['action'] == "attack":
                 tree.insert("", tk.END, values=("Attack", action['attacker'], action['target'], f"{action['details']['attack_roll']} | {action['details']['enemy_roll']}", f"{action['details']['attack_dr']} | {action['details']['enemy_dr']}", action['details']['damage'], action['enemy_health']))
+            elif action['action'] in ("move", "run", "stand_up", "reload", "bleed"):
+                tree.insert("", tk.END, values=(action['action'].replace("_", " ").title(), action['attacker'], action['target'] if action['target'] != action['attacker'] else "", "", "", action.get('details', {}).get('damage', ""), action.get('enemy_health', "")))
             elif action['action'] == "ranged_attack":
                 tree.insert("", tk.END, values=("Ranged Attack", action['attacker'], action['target'], action['details']['attack_roll'], "", action['details']['damage'], action['enemy_health']))
 

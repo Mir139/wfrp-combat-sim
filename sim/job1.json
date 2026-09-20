@@ -166,6 +166,7 @@
         }
     ],
     "simulation": {
-        "num_simulations": 100
+        "num_simulations": 100,
+        "initial_distance": 12
     }
 }

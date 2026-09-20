@@ -30,7 +30,8 @@ def create_item(item_data, item_type):
             damage=item_data['damage'],
             attributes=item_data['attributes'],
             encumbrance=item_data['encumbrance'],
-            damage_BF=item_data.get('damage_BF', False)
+            damage_BF=item_data.get('damage_BF', False),
+            range_BF=item_data.get('range_BF', False)
         )
     elif item_type == 'armors':
         return Armor(
@@ -63,7 +64,8 @@ def create_characters(factions_data, inventory_data):
                 Int=member_data['Int'],
                 FM=member_data['FM'],
                 Soc=member_data['Soc'],
-                faction=faction_data['name']
+                faction=faction_data['name'],
+                behavior=member_data.get('behavior')
             )
             for item in member_data['inventory']:
                 item_data = next((i for i in inventory_data[item['type']] if i['name'] == item['name']), None)

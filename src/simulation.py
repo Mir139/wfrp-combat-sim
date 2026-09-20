@@ -1,12 +1,13 @@
 from src.loader import load_inventory, load_simulation_config, create_characters
-from src.combat import Combat
+from src.combat import Combat, DEFAULT_DISTANCE
 import copy
 import random
 
 class Simulation:
-    def __init__(self, factions, seed=None):
+    def __init__(self, factions, seed=None, initial_distance=DEFAULT_DISTANCE):
         self.factions = factions
         self.rng = random.Random(seed)
+        self.initial_distance = initial_distance
 
     def run_simulation(self, num_simulations):
         results = []
@@ -19,7 +20,7 @@ class Simulation:
         # Select two factions for the battle
         faction1 = copy.deepcopy(self.factions[0])
         faction2 = copy.deepcopy(self.factions[1])
-        combat = Combat(faction1, faction2, self.rng)
+        combat = Combat(faction1, faction2, self.rng, self.initial_distance)
         winner, survivors, remaining_health, action_log = combat.run_combat()
         return {"winner": winner, "survivors": survivors, "remaining_health": remaining_health, "action_log": action_log}
 
@@ -72,7 +73,7 @@ if __name__ == "__main__":
     factions = create_characters(config_data['factions'], inventory_data)
     num_simulations = config_data['simulation']['num_simulations']
 
-    sim = Simulation(factions)
+    sim = Simulation(factions, initial_distance=config_data['simulation'].get('initial_distance', DEFAULT_DISTANCE))
     results = sim.run_simulation(num_simulations)
     metrics = sim.gather_metrics(results)
     print(metrics)
