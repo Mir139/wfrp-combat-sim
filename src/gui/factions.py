@@ -1,368 +1,352 @@
-"""Factions panel: edit the job (factions, characters, inventories) and import character sheets."""
-import copy
+"""Factions panel: edit the job (factions, characters, tactics, inventory), open, save and import."""
+import json
 import os
-import tkinter as tk
-from tkinter import filedialog, messagebox, ttk
+
+from nicegui import ui
 
 from src.character import ROUT_BEHAVIORS, TARGETING_STRATEGIES
-from src.jobs import BEHAVIORS, CHARACTERISTICS, ITEM_TYPES, character_problems, import_characters, new_character
+from src.gui.common import confirm, notify_error, notify_problems
+from src.gui.state import json_files, read_json, safe_json_name, write_json
+from src.jobs import (BEHAVIORS, CHARACTERISTICS, ITEM_TYPES, add_characters, add_faction, add_member, character_problems,
+                      characters_from_data, duplicate_member, new_job, set_field, validate_job)
 
-AUTO = ""  # blank choice: not set, the default applies
 TYPE_LABELS = {"melee_weapons": "Melee weapon", "ranged_weapons": "Ranged weapon", "armors": "Armor"}
+CHOICES = {"behavior": BEHAVIORS, "targeting": list(TARGETING_STRATEGIES), "on_rout": list(ROUT_BEHAVIORS)}
+CHOICE_LABELS = {"behavior": "Fighting style", "targeting": "Targeting", "on_rout": "On rout"}
 
 
-def unique_name(base, taken):
-    if base not in taken:
-        return base
-    k = 2
-    while f"{base} {k}" in taken:
-        k += 1
-    return f"{base} {k}"
+class FactionsPanel:
+    def __init__(self, state, on_job_changed=None):
+        self.state = state
+        self.on_job_changed = on_job_changed or (lambda: None)
+        self.tree = None
 
+    # --- layout --------------------------------------------------------------------
 
-class FactionsPanel(ttk.Frame):
-    def __init__(self, master, app):
-        super().__init__(master, padding=8)
-        self.app = app
-        self.selected = None  # ("faction", fi) or ("member", fi, mi)
-        self._build()
+    def build(self):
+        with ui.row().classes("w-full items-center gap-1"):
+            ui.button("New", icon="note_add", on_click=self.new_job).props("flat").mark("new-job")
+            ui.button("Open", icon="folder_open", on_click=self.open_dialog).props("flat").mark("open-job")
+            ui.button("Save", icon="save", on_click=self.save_dialog).props("flat").mark("save-job")
+            ui.button("Import characters", icon="person_add", on_click=self.import_dialog).props("flat").mark("import-characters")
+            self.path_label = ui.label().classes("muted ml-4")
+        with ui.splitter(value=28).classes("w-full").style("min-height: 560px") as splitter:
+            with splitter.before:
+                with ui.column().classes("w-full gap-2 pr-3"):
+                    self.tree = ui.tree(self.tree_nodes(), node_key="id", label_key="label",
+                                        on_select=self.on_tree_select).classes("w-full").props("selected-color=primary")
+                    self.tree.expand()
+                    with ui.row().classes("gap-1"):
+                        ui.button("Faction", icon="add", on_click=self.add_faction).props("dense outline").mark("add-faction")
+                        ui.button("Character", icon="add", on_click=self.add_character).props("dense outline").mark("add-character")
+                        ui.button(icon="content_copy", on_click=self.duplicate).props("dense outline").tooltip("Duplicate").mark("duplicate")
+                        ui.button(icon="delete", on_click=self.remove).props("dense outline color=negative").tooltip("Remove").mark("remove")
+            with splitter.after:
+                with ui.column().classes("w-full pl-3"):
+                    self.editor()
+        self.update_path()
 
-    # --- layout ------------------------------------------------------------
+    def update_path(self):
+        self.path_label.set_text(os.path.relpath(self.state.job_path) if self.state.job_path else "(unsaved job)")
 
-    def _build(self):
-        bar = ttk.Frame(self)
-        bar.pack(fill=tk.X)
-        ttk.Button(bar, text="New job", command=self.new_job).pack(side=tk.LEFT)
-        ttk.Button(bar, text="Open job...", command=self.app.open_job).pack(side=tk.LEFT, padx=4)
-        ttk.Button(bar, text="Save job as...", command=self.app.save_job).pack(side=tk.LEFT)
-        ttk.Button(bar, text="Import characters...", command=self.import_dialog).pack(side=tk.LEFT, padx=12)
-        self.path_label = ttk.Label(bar, foreground="#52514e")
-        self.path_label.pack(side=tk.LEFT, padx=8)
+    # --- tree ------------------------------------------------------------------------------
 
-        panes = ttk.PanedWindow(self, orient=tk.HORIZONTAL)
-        panes.pack(fill=tk.BOTH, expand=True, pady=8)
-
-        left = ttk.Frame(panes)
-        self.tree = ttk.Treeview(left, show="tree", selectmode="browse", height=20)
-        self.tree.pack(fill=tk.BOTH, expand=True)
-        self.tree.bind("<<TreeviewSelect>>", self.on_select)
-        buttons = ttk.Frame(left)
-        buttons.pack(fill=tk.X, pady=(6, 0))
-        for text, command in (("Add faction", self.add_faction), ("Add character", self.add_character),
-                              ("Duplicate", self.duplicate), ("Remove", self.remove)):
-            ttk.Button(buttons, text=text, command=command).pack(side=tk.LEFT, padx=(0, 4))
-        panes.add(left, weight=1)
-
-        self.form = ttk.Frame(panes, padding=(12, 0))
-        panes.add(self.form, weight=2)
-        self.vars = {}
-        self.widgets = {}  # key -> widgets of the field, to show or hide them
-        self._build_form()
-
-    def _build_form(self):
-        self.title = ttk.Label(self.form, text="Select a faction or a character", font=("TkDefaultFont", 11, "bold"))
-        self.title.grid(row=0, column=0, columnspan=4, sticky=tk.W, pady=(0, 8))
-
-        self.fields = ttk.Frame(self.form)
-        self.fields.grid(row=1, column=0, columnspan=4, sticky=tk.W)
-        self._field("name", "Name", 0, 0, width=28, span=3)
-        self._field("health", "Wounds", 1, 0)
-        for i, characteristic in enumerate(CHARACTERISTICS):
-            self._field(characteristic, characteristic, 1 + (i + 1) // 2, ((i + 1) % 2) * 2)
-
-        tactics = ttk.LabelFrame(self.form, text="Tactics (blank: default)", padding=6)
-        tactics.grid(row=2, column=0, columnspan=4, sticky=tk.EW, pady=8)
-        self.tactics = tactics
-        self._combo("behavior", "Fighting style", [AUTO] + BEHAVIORS, tactics, 0, 0)
-        self._combo("targeting", "Targeting", [AUTO] + list(TARGETING_STRATEGIES), tactics, 0, 2)
-        self._combo("on_rout", "On rout", [AUTO] + list(ROUT_BEHAVIORS), tactics, 1, 0)
-        self.vars["rout_threshold"] = tk.StringVar()
-        ttk.Label(tactics, text="Rout threshold").grid(row=1, column=2, sticky=tk.W, padx=(0, 6), pady=2)
-        ttk.Entry(tactics, textvariable=self.vars["rout_threshold"], width=8).grid(row=1, column=3, sticky=tk.W)
-
-        self.inventory_frame = ttk.LabelFrame(self.form, text="Inventory", padding=6)
-        self.inventory_frame.grid(row=3, column=0, columnspan=4, sticky=tk.NSEW)
-        self.form.rowconfigure(3, weight=1)
-        self.form.columnconfigure(3, weight=1)
-        self.inventory_list = tk.Listbox(self.inventory_frame, height=6, exportselection=False)
-        self.inventory_list.grid(row=0, column=0, columnspan=4, sticky=tk.NSEW)
-        self.inventory_frame.columnconfigure(0, weight=1)
-        self.inventory_frame.rowconfigure(0, weight=1)
-        self.item_type = tk.StringVar(value=TYPE_LABELS[ITEM_TYPES[0]])
-        self.item_name = tk.StringVar()
-        type_box = ttk.Combobox(self.inventory_frame, textvariable=self.item_type, values=list(TYPE_LABELS.values()),
-                                state="readonly", width=14)
-        type_box.grid(row=1, column=0, sticky=tk.W, pady=(6, 0))
-        type_box.bind("<<ComboboxSelected>>", lambda e: self.refresh_item_choices())
-        self.item_box = ttk.Combobox(self.inventory_frame, textvariable=self.item_name, state="readonly", width=30)
-        self.item_box.grid(row=1, column=1, sticky=tk.EW, padx=4, pady=(6, 0))
-        ttk.Button(self.inventory_frame, text="Add", command=self.add_item).grid(row=1, column=2, pady=(6, 0))
-        ttk.Button(self.inventory_frame, text="Remove selected", command=self.remove_item).grid(row=1, column=3, padx=4, pady=(6, 0))
-
-        self.apply_button = ttk.Button(self.form, text="Apply changes", command=self.apply)
-        self.apply_button.grid(row=4, column=0, sticky=tk.W, pady=(10, 0))
-        self.set_form_enabled(False)
-
-    def _field(self, key, label, row, column, width=8, span=1):
-        self.vars[key] = tk.StringVar()
-        text = ttk.Label(self.fields, text=label)
-        text.grid(row=row, column=column, sticky=tk.W, padx=(0, 6), pady=2)
-        entry = ttk.Entry(self.fields, textvariable=self.vars[key], width=width)
-        entry.grid(row=row, column=column + 1, columnspan=span, sticky=tk.W, padx=(0, 18))
-        self.widgets[key] = (text, entry)
-
-    def _combo(self, key, label, values, parent, row, column):
-        self.vars[key] = tk.StringVar()
-        text = ttk.Label(parent, text=label)
-        text.grid(row=row, column=column, sticky=tk.W, padx=(0, 6), pady=2)
-        combo = ttk.Combobox(parent, textvariable=self.vars[key], values=values, state="readonly", width=12)
-        combo.grid(row=row, column=column + 1, sticky=tk.W, padx=(0, 18))
-        self.widgets[key] = (text, combo)
-
-    # --- data <-> tree ---------------------------------------------------------
-
-    @property
-    def factions(self):
-        return self.app.job["factions"]
-
-    def job_changed(self, keep_selection=False):
-        self.path_label.config(text=self.app.job_path or "(unsaved job)")
-        self.refresh_tree(self.selected if keep_selection else None)
-
-    def db_changed(self):
-        self.refresh_item_choices()
+    def tree_nodes(self):
+        return [{"id": f"f{fi}", "label": f"{f['name']} ({len(f['members'])})",
+                 "children": [{"id": f"f{fi}m{mi}", "label": m["name"]} for mi, m in enumerate(f["members"])]}
+                for fi, f in enumerate(self.state.job["factions"])]
 
     def refresh_tree(self, select=None):
-        self.tree.delete(*self.tree.get_children())
-        for fi, faction in enumerate(self.factions):
-            self.tree.insert("", tk.END, iid=f"f{fi}", text=f"{faction['name']} ({len(faction['members'])})", open=True)
-            for mi, member in enumerate(faction["members"]):
-                self.tree.insert(f"f{fi}", tk.END, iid=f"f{fi}m{mi}", text=member["name"])
-        if select:
-            iid = f"f{select[1]}" if select[0] == "faction" else f"f{select[1]}m{select[2]}"
-            if self.tree.exists(iid):
-                self.tree.selection_set(iid)
-                self.selected = tuple(select)
-                self.load_form()
-                return
-        self.selected = None
-        self.load_form()
+        self.tree._props["nodes"] = self.tree_nodes()
+        self.tree.update()
+        self.tree.expand()
+        if select is not None:
+            self.select(select)
 
-    def on_select(self, _event=None):
-        selection = self.tree.selection()
-        if not selection:
-            return
-        iid = selection[0]
-        if "m" in iid:
-            fi, mi = iid[1:].split("m")
-            self.selected = ("member", int(fi), int(mi))
+    def select(self, selection):
+        self.state.selection = selection
+        if selection is None:
+            self.tree.deselect()
         else:
-            self.selected = ("faction", int(iid[1:]))
-        self.load_form()
+            self.tree.select(f"f{selection[1]}" if selection[0] == "faction" else f"f{selection[1]}m{selection[2]}")
+        self.editor.refresh()
+
+    def on_tree_select(self, event):
+        node = event.value
+        if node is None:
+            return
+        if "m" in node:
+            faction, member = node[1:].split("m")
+            selection = ("member", int(faction), int(member))
+        else:
+            selection = ("faction", int(node[1:]))
+        if selection != self.state.selection:
+            self.state.selection = selection
+            self.editor.refresh()
 
     def current(self):
-        if not self.selected:
+        selection = self.state.selection
+        if not selection:
             return None
-        faction = self.factions[self.selected[1]]
-        return faction if self.selected[0] == "faction" else faction["members"][self.selected[2]]
+        faction = self.state.job["factions"][selection[1]]
+        return faction if selection[0] == "faction" else faction["members"][selection[2]]
 
-    def set_form_enabled(self, enabled):
-        state = "normal" if enabled else "disabled"
-        for child in self.form.winfo_children():
-            self._set_state(child, state)
+    # --- editor ------------------------------------------------------------------------------
 
-    def _set_state(self, widget, state):
-        try:
-            widget.configure(state="readonly" if state == "normal" and isinstance(widget, ttk.Combobox) else state)
-        except tk.TclError:
-            pass
-        for child in widget.winfo_children():
-            self._set_state(child, state)
-
-    def load_form(self):
+    @ui.refreshable_method
+    def editor(self):
         data = self.current()
-        for var in self.vars.values():
-            var.set("")
-        self.inventory_list.delete(0, tk.END)
-        self.set_form_enabled(data is not None)
         if data is None:
-            self.title.config(text="Select a faction or a character")
+            ui.label("Select a faction or a character to edit it.").classes("muted")
             return
-        is_member = self.selected[0] == "member"
-        self.title.config(text=("Character" if is_member else "Faction") + f": {data['name']}")
-        self.vars["name"].set(data["name"])
-        for key in ("targeting", "on_rout", "rout_threshold"):
-            self.vars[key].set("" if data.get(key) is None else str(data[key]))
-        for key in ["health"] + CHARACTERISTICS + ["behavior"]:
-            for widget in self.widgets[key]:
-                (widget.grid if is_member else widget.grid_remove)()
+        is_member = self.state.selection[0] == "member"
+        ui.label(("Character" if is_member else "Faction") + f": {data['name']}").classes("text-lg font-medium")
+        name = ui.input("Name", value=data["name"]).classes("w-72").mark("name")
+        name.on("blur", lambda: self.commit(data, "name", name.value, lambda: name.set_value(data["name"])))
+        name.on("keydown.enter", lambda: self.commit(data, "name", name.value, lambda: name.set_value(data["name"])))
         if is_member:
-            for key in ["health"] + CHARACTERISTICS:
-                self.vars[key].set(str(data[key]))
-            self.vars["behavior"].set(data.get("behavior") or "")
-            for item in data.get("inventory", []):
-                self.inventory_list.insert(tk.END, f"{TYPE_LABELS.get(item['type'], item['type'])}: {item['name']}")
-        for child in (self.inventory_frame,):
-            self._set_state(child, "normal" if is_member else "disabled")
-        self.refresh_item_choices()
+            self.characteristics(data)
+        self.tactics(data, is_member)
+        if is_member:
+            self.inventory(data)
 
-    def refresh_item_choices(self):
-        item_type = next((t for t, label in TYPE_LABELS.items() if label == self.item_type.get()), ITEM_TYPES[0])
-        names = [item["name"] for item in self.app.inventory.get(item_type, [])]
-        self.item_box.config(values=names)
-        if self.item_name.get() not in names:
-            self.item_name.set(names[0] if names else "")
+    def characteristics(self, data):
+        with ui.row().classes("gap-3 items-end flex-wrap"):
+            for key, label in [("health", "Wounds")] + [(c, c) for c in CHARACTERISTICS]:
+                box = ui.number(label, value=data[key], format="%.0f", min=0 if key != "health" else 1).classes("w-24").mark(f"field-{key}")
+                box.on_value_change(lambda e, key=key, box=box: self.commit_number(data, key, e.value, box))
 
-    # --- editing ---------------------------------------------------------------------
+    def tactics(self, data, is_member):
+        with ui.card().props("flat bordered").classes("w-full"):
+            ui.label("Tactics (blank: default)").classes("text-subtitle2")
+            with ui.row().classes("gap-3 items-end"):
+                for key in (["behavior"] if is_member else []) + ["targeting", "on_rout"]:
+                    options = {"": "(default)", **{c: c for c in CHOICES[key]}}
+                    choice = ui.select(options, label=CHOICE_LABELS[key], value=data.get(key) or "").classes("w-40").mark(f"choice-{key}")
+                    choice.on_value_change(lambda e, key=key: self.commit(data, key, e.value))
+                threshold = ui.number("Rout threshold", value=data.get("rout_threshold"), min=0, max=1, step=0.05,
+                                      format="%.2f").classes("w-36").props("clearable").mark("field-rout_threshold")
+                threshold.on_value_change(lambda e: self.commit(data, "rout_threshold", e.value))
 
-    def _number(self, key, integer=True):
-        text = self.vars[key].get().strip()
+    def inventory(self, data):
+        with ui.card().props("flat bordered").classes("w-full"):
+            ui.label("Inventory").classes("text-subtitle2")
+            for index, item in enumerate(data.get("inventory", [])):
+                with ui.row().classes("w-full items-center"):
+                    ui.badge(TYPE_LABELS.get(item["type"], item["type"])).props("outline")
+                    ui.label(item["name"]).classes("grow")
+                    ui.button(icon="close", on_click=lambda i=index: self.remove_item(data, i)).props("flat dense round size=sm").mark(f"remove-item-{index}")
+            if not data.get("inventory"):
+                ui.label("Nothing carried.").classes("muted")
+            with ui.row().classes("items-end gap-2 mt-2"):
+                kind = ui.select({k: v for k, v in TYPE_LABELS.items()}, value=ITEM_TYPES[0], label="Type").classes("w-44").mark("inventory-type")
+                names = [i["name"] for i in self.state.inventory.get(kind.value, [])]
+                item = ui.select(names, value=names[0] if names else None, label="Item", with_input=True).classes("w-72").mark("inventory-item")
+
+                def change_type(event):
+                    options = [i["name"] for i in self.state.inventory.get(event.value, [])]
+                    item.set_options(options, value=options[0] if options else None)
+
+                kind.on_value_change(change_type)
+                ui.button("Add", icon="add", on_click=lambda: self.add_item(data, kind.value, item.value)).props("outline").mark("add-item")
+
+    # --- editing ---------------------------------------------------------------------------------
+
+    def commit(self, target, key, value, revert=None):
         try:
-            return int(text) if integer else float(text)
-        except ValueError:
-            raise ValueError(f"'{key}' must be a number, not '{text}'") from None
-
-    def apply(self):
-        data = self.current()
-        if data is None:
+            set_field(self.state.job, target, key, value)
+        except (ValueError, TypeError) as error:
+            notify_error(str(error))
+            if revert:
+                revert()
             return
-        try:
-            name = self.vars["name"].get().strip()
-            if not name:
-                raise ValueError("The name cannot be empty")
-            changes = {"name": name}
-            if self.selected[0] == "member":
-                for key in ["health"] + CHARACTERISTICS:
-                    changes[key] = self._number(key)
-                if changes["health"] <= 0:
-                    raise ValueError("'health' must be positive")
-            threshold = self.vars["rout_threshold"].get().strip()
-            if threshold:
-                changes["rout_threshold"] = self._number("rout_threshold", integer=False)
-                if not 0 < changes["rout_threshold"] <= 1:
-                    raise ValueError("'rout_threshold' must be between 0 and 1")
-            taken = {m["name"] for f in self.factions for m in f["members"]} - {data["name"]}
-            if self.selected[0] == "member" and name in taken:
-                raise ValueError(f"There is already a character named '{name}'")
-        except ValueError as error:
-            messagebox.showerror("Invalid value", str(error))
-            return
-        optional = ["targeting", "on_rout"] + (["behavior"] if self.selected[0] == "member" else [])
-        for key in optional + ["rout_threshold"]:
-            value = changes.get(key, self.vars[key].get().strip())
-            if value in ("", None):
-                data.pop(key, None)
-            else:
-                data[key] = value
-        data.update({k: v for k, v in changes.items() if k != "rout_threshold"})
-        self.refresh_tree(self.selected)
-        self.app.results_panel.job_changed()
+        if key == "name":
+            self.refresh_tree()
+            self.editor.refresh()
+        self.on_job_changed()
 
-    def new_job(self):
-        from src.jobs import new_job
-        self.app.set_job(new_job(), None)
+    def commit_number(self, target, key, value, box):
+        if value is None:  # the box is being typed into
+            return
+        self.commit(target, key, value, lambda: box.set_value(target[key]))
+
+    def add_item(self, data, item_type, name):
+        if not name:
+            notify_error("Choose an item first")
+            return
+        data.setdefault("inventory", []).append({"type": item_type, "name": name})
+        self.editor.refresh()
+
+    def remove_item(self, data, index):
+        del data["inventory"][index]
+        self.editor.refresh()
 
     def add_faction(self):
-        name = unique_name(f"Faction {len(self.factions) + 1}", {f["name"] for f in self.factions})
-        self.factions.append({"name": name, "members": []})
-        self.refresh_tree(("faction", len(self.factions) - 1))
+        self.refresh_tree(("faction", add_faction(self.state.job)))
+        self.on_job_changed()
 
     def add_character(self):
-        if not self.selected:
-            messagebox.showinfo("Add a character", "Select a faction first")
+        if not self.state.selection:
+            notify_error("Select a faction first")
             return
-        fi = self.selected[1]
-        taken = {m["name"] for f in self.factions for m in f["members"]}
-        self.factions[fi]["members"].append(new_character(unique_name("New character", taken)))
-        self.refresh_tree(("member", fi, len(self.factions[fi]["members"]) - 1))
+        faction = self.state.selection[1]
+        self.refresh_tree(("member", faction, add_member(self.state.job, faction)))
+        self.on_job_changed()
 
     def duplicate(self):
-        if not self.selected or self.selected[0] != "member":
+        if not self.state.selection or self.state.selection[0] != "member":
+            notify_error("Select a character to duplicate")
             return
-        fi, mi = self.selected[1:]
-        clone = copy.deepcopy(self.factions[fi]["members"][mi])
-        clone["name"] = unique_name(clone["name"], {m["name"] for f in self.factions for m in f["members"]})
-        self.factions[fi]["members"].append(clone)
-        self.refresh_tree(("member", fi, len(self.factions[fi]["members"]) - 1))
+        faction, member = self.state.selection[1:]
+        self.refresh_tree(("member", faction, duplicate_member(self.state.job, faction, member)))
+        self.on_job_changed()
 
-    def remove(self):
-        if not self.selected:
+    async def remove(self):
+        selection = self.state.selection
+        if not selection:
             return
-        if self.selected[0] == "faction":
-            faction = self.factions[self.selected[1]]
-            if faction["members"] and not messagebox.askyesno("Remove", f"Remove '{faction['name']}' and its {len(faction['members'])} characters?"):
+        factions = self.state.job["factions"]
+        if selection[0] == "faction":
+            faction = factions[selection[1]]
+            if faction["members"] and not await confirm(f"Remove '{faction['name']}' and its {len(faction['members'])} characters?", "Remove"):
                 return
-            del self.factions[self.selected[1]]
+            del factions[selection[1]]
         else:
-            del self.factions[self.selected[1]]["members"][self.selected[2]]
-        self.selected = None
+            del factions[selection[1]]["members"][selection[2]]
+        self.state.selection = None
         self.refresh_tree()
-        self.app.results_panel.job_changed()
+        self.editor.refresh()
+        self.on_job_changed()
 
-    def add_item(self):
-        data = self.current()
-        if data is None or self.selected[0] != "member" or not self.item_name.get():
-            return
-        item_type = next(t for t, label in TYPE_LABELS.items() if label == self.item_type.get())
-        data.setdefault("inventory", []).append({"type": item_type, "name": self.item_name.get()})
-        self.load_form()
+    # --- files -------------------------------------------------------------------------------------
 
-    def remove_item(self):
-        data = self.current()
-        selection = self.inventory_list.curselection()
-        if data is None or not selection:
-            return
-        del data["inventory"][selection[0]]
-        self.load_form()
+    def load_job(self, job, path=None):
+        self.state.set_job(job, path)
+        self.refresh_tree()
+        self.editor.refresh()
+        self.update_path()
+        self.on_job_changed()
+        problems = validate_job(job, self.state.inventory)
+        if problems:
+            notify_problems("The job has problems", problems)
 
-    # --- import ------------------------------------------------------------------------
+    def new_job(self):
+        self.load_job(new_job())
 
-    def import_dialog(self):
-        path = filedialog.askopenfilename(title="Import characters (character, list, or job file)",
-                                          filetypes=[("JSON", "*.json")], initialdir=os.path.join(self.app_root(), "sim"))
-        if not path:
-            return
-        try:
-            characters = import_characters(path)
-        except (OSError, ValueError) as error:
-            messagebox.showerror("Import", f"Cannot import {path}: {error}")
-            return
-        self.choose_characters(characters)
+    def open_dialog(self):
+        with ui.dialog() as dialog, ui.card().classes("w-96"):
+            ui.label("Open a job").classes("text-lg font-medium")
+            files = json_files(self.state.job_dir)
+            choice = ui.select(files, label=f"Jobs in {os.path.basename(self.state.job_dir)}/",
+                               value=files[0] if files else None).classes("w-full").mark("job-file")
+
+            def open_selected():
+                try:
+                    path = os.path.join(self.state.job_dir, choice.value)
+                    job = read_json(path)
+                    self.check_job(job)
+                except (OSError, ValueError, TypeError) as error:
+                    notify_error(f"Cannot open the job: {error}")
+                    return
+                dialog.close()
+                self.load_job(job, path)
+
+            opener = ui.button("Open", icon="folder_open", on_click=open_selected).props("outline").mark("open-selected")
+            opener.set_enabled(bool(files))
+            ui.separator()
+            ui.label("or upload a job file").classes("muted")
+
+            async def uploaded(event):
+                try:
+                    job = json.loads(await event.file.text())
+                    self.check_job(job)
+                except (ValueError, TypeError) as error:
+                    notify_error(f"Cannot open {event.file.name}: {error}")
+                    return
+                dialog.close()
+                self.load_job(job, None)
+
+            ui.upload(on_upload=uploaded, auto_upload=True, label="Choose a .json file").props("accept=.json flat").classes("w-full")
+            ui.button("Close", on_click=dialog.close).props("flat")
+        dialog.open()
 
     @staticmethod
-    def app_root():
-        from src.gui import ROOT
-        return ROOT
+    def check_job(job):
+        if not isinstance(job, dict) or not isinstance(job.get("factions"), list):
+            raise ValueError("this file has no 'factions'")
 
-    def choose_characters(self, characters):
+    def save_dialog(self):
+        with ui.dialog() as dialog, ui.card().classes("w-96"):
+            ui.label("Save the job").classes("text-lg font-medium")
+            default = os.path.basename(self.state.job_path) if self.state.job_path else "my_job.json"
+            name = ui.input("File name", value=default).classes("w-full").mark("file-name")
+
+            def save():
+                filename = safe_json_name(name.value, "my_job.json")
+                path = os.path.join(self.state.job_dir, filename)
+                if os.path.exists(path) and path != self.state.job_path:
+                    notify_error(f"{filename} already exists: choose another name or download the job")
+                    return
+                os.makedirs(self.state.job_dir, exist_ok=True)
+                write_json(path, self.state.job)
+                self.state.job_path = path
+                self.update_path()
+                ui.notify(f"Saved to {os.path.relpath(path)}", type="positive")
+                dialog.close()
+
+            def download():
+                ui.download(json.dumps(self.state.job, ensure_ascii=False, indent=4).encode("utf-8"),
+                            safe_json_name(name.value, "my_job.json"))
+
+            with ui.row().classes("w-full justify-end"):
+                ui.button("Download", icon="download", on_click=download).props("flat").mark("download-job")
+                ui.button("Save in sim/", icon="save", on_click=save).props("outline").mark("save-in-folder")
+        dialog.open()
+
+    def import_dialog(self):
+        with ui.dialog() as dialog, ui.card().classes("w-[28rem]"):
+            ui.label("Import characters").classes("text-lg font-medium")
+            ui.label("A character, a list, a faction or a whole job file (JSON).").classes("muted")
+            body = ui.column().classes("w-full")
+
+            async def uploaded(event):
+                try:
+                    characters = characters_from_data(json.loads(await event.file.text()))
+                except (ValueError, TypeError) as error:
+                    notify_error(f"Cannot import {event.file.name}: {error}")
+                    return
+                self.choose_characters(dialog, body, characters)
+
+            with body:
+                ui.upload(on_upload=uploaded, auto_upload=True, label="Choose a .json file").props("accept=.json flat").classes("w-full")
+            ui.button("Close", on_click=dialog.close).props("flat")
+        dialog.open()
+
+    def choose_characters(self, dialog, body, characters):
         """Let the user pick which of the imported characters to add, and to which faction."""
-        window = tk.Toplevel(self)
-        window.title("Import characters")
-        window.transient(self.winfo_toplevel())
-        ttk.Label(window, text="Characters to import:").grid(row=0, column=0, sticky=tk.W, padx=8, pady=(8, 2))
-        box = tk.Listbox(window, selectmode=tk.EXTENDED, height=min(12, len(characters)), exportselection=False)
-        for character in characters:
-            box.insert(tk.END, character["name"])
-        box.select_set(0, tk.END)
-        box.grid(row=1, column=0, columnspan=2, sticky=tk.NSEW, padx=8)
-        ttk.Label(window, text="Into faction:").grid(row=2, column=0, sticky=tk.W, padx=8, pady=6)
-        names = [f["name"] for f in self.factions]
-        target = tk.StringVar(value=names[self.selected[1]] if self.selected else names[0])
-        ttk.Combobox(window, textvariable=target, values=names, state="readonly").grid(row=2, column=1, sticky=tk.W)
+        factions = {i: f["name"] for i, f in enumerate(self.state.job["factions"])}
+        if not factions:
+            notify_error("The job has no faction to import into")
+            return
+        body.clear()
+        with body:
+            ui.label(f"{len(characters)} character(s) found").classes("font-medium")
+            checks = [ui.checkbox(c["name"], value=True).mark(f"import-{i}") for i, c in enumerate(characters)]
+            selection = self.state.selection
+            target = ui.select(factions, label="Into faction", value=selection[1] if selection else 0).classes("w-full").mark("import-faction")
 
-        def do_import():
-            chosen = [characters[i] for i in box.curselection()]
-            faction = self.factions[names.index(target.get())]
-            taken = {m["name"] for f in self.factions for m in f["members"]}
-            for character in chosen:
-                character["name"] = unique_name(character["name"], taken)
-                taken.add(character["name"])
-                faction["members"].append(character)
-            window.destroy()
-            self.refresh_tree(("faction", names.index(target.get())))
-            problems = [p for c in chosen for p in character_problems(c, c["name"], self.app.inventory)]
-            if problems:
-                messagebox.showwarning("Imported with problems", "\n".join(problems[:15]))
+            def do_import():
+                chosen = [c for c, check in zip(characters, checks) if check.value]
+                if not chosen:
+                    notify_error("No character selected")
+                    return
+                add_characters(self.state.job, target.value, chosen)
+                dialog.close()
+                self.refresh_tree(("faction", target.value))
+                self.on_job_changed()
+                ui.notify(f"{len(chosen)} character(s) imported", type="positive")
+                problems = [p for c in chosen for p in character_problems(c, c["name"], self.state.inventory)]
+                if problems:
+                    notify_problems("Imported with problems", problems)
 
-        ttk.Button(window, text="Import", command=do_import).grid(row=3, column=0, padx=8, pady=8, sticky=tk.W)
-        ttk.Button(window, text="Cancel", command=window.destroy).grid(row=3, column=1, sticky=tk.W)
+            ui.button("Import", icon="person_add", on_click=do_import).props("outline").mark("do-import")

@@ -1,5 +1,6 @@
 """Text, JSON and CSV output of simulation metrics."""
 import csv
+import io
 import json
 
 BAR_WIDTH = 30
@@ -127,9 +128,13 @@ def format_comparison(outcomes):
     return "\n".join(lines)
 
 
+def json_text(payload):
+    return json.dumps(payload, ensure_ascii=False, indent=2)
+
+
 def write_json(path, payload):
     with open(path, "w", encoding="utf-8") as file:
-        json.dump(payload, file, ensure_ascii=False, indent=2)
+        file.write(json_text(payload))
 
 
 def metrics_rows(metrics):
@@ -169,8 +174,45 @@ def comparison_rows(outcomes):
     return rows
 
 
+def csv_text(rows):
+    buffer = io.StringIO(newline="")
+    writer = csv.DictWriter(buffer, fieldnames=list(rows[0]) if rows else [])
+    writer.writeheader()
+    writer.writerows(rows)
+    return buffer.getvalue()
+
+
 def write_csv(path, rows):
     with open(path, "w", encoding="utf-8", newline="") as file:
-        writer = csv.DictWriter(file, fieldnames=list(rows[0]) if rows else [])
-        writer.writeheader()
-        writer.writerows(rows)
+        file.write(csv_text(rows))
+
+
+def log_rows(action_log):
+    """The action log of a fight as table rows: action, attacker, target, roll, dr, damage, target_hp."""
+    rows = []
+    for action in action_log:
+        kind, details = action["action"], action.get("details")
+        row = {"action": kind.replace("_", " ").title(), "attacker": action.get("attacker", ""), "target": "",
+               "roll": "", "dr": "", "damage": "", "target_hp": action.get("enemy_health", "")}
+        if kind == "initiate_combat":
+            row["action"] = "Combat starts"
+        elif kind == "engage":
+            row["target"] = action["target"]
+        elif kind in ("attack", "ranged_attack"):
+            flag = " (critical)" if details["critical"] else " (fumble)" if details["fumble"] else ""
+            row.update(action="Attack" + flag if kind == "attack" else "Ranged attack" + flag, target=action["target"],
+                       damage=details["damage"])
+            if kind == "attack":
+                row.update(roll=f"{details['attack_roll']} | {details['enemy_roll']}",
+                           dr=f"{details['attack_dr']} | {details['enemy_dr']}")
+            else:
+                row.update(roll=details["attack_roll"], dr=details["attack_dr"])
+        elif kind == "rout":
+            row.update(action=f"Rout ({details['outcome']})", roll=details["roll"])
+        else:  # move, run, stand_up, reload, bleed
+            if action.get("target") != action.get("attacker"):
+                row["target"] = action.get("target", "")
+            if isinstance(details, dict):
+                row["damage"] = details.get("damage", "")
+        rows.append(row)
+    return rows

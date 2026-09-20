@@ -1,3 +1,5 @@
 numpy
 pytest
+pytest-asyncio
 matplotlib
+nicegui

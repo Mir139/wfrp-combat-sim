@@ -1,4 +1,5 @@
 """Editing helpers for job files: validation, blank characters and import of character sheets."""
+import copy
 import json
 
 from src.character import ROUT_BEHAVIORS, TARGETING_STRATEGIES
@@ -71,13 +72,11 @@ def validate_job(config, inventory=None):
     return problems
 
 
-def import_characters(path):
-    """Read characters from a JSON file: a single character, a list of characters, or a whole job file.
+def characters_from_data(data):
+    """Characters found in parsed JSON: a single character, a list, a faction, or a whole job file.
 
-    Returns the list of character dicts (as found: use `validate_job` to check them).
+    Returns the list of character dicts (as found: use `character_problems` to check them).
     """
-    with open(path, "r", encoding="utf-8") as file:
-        data = json.load(file)
     if isinstance(data, dict) and "factions" in data:
         characters = [m for f in data["factions"] for m in f.get("members", [])]
     elif isinstance(data, dict) and "members" in data:
@@ -94,3 +93,95 @@ def import_characters(path):
     for character in characters:
         character.setdefault("inventory", [])
     return characters
+
+
+def import_characters(path):
+    """Read characters from a JSON file (see `characters_from_data`)."""
+    with open(path, "r", encoding="utf-8") as file:
+        return characters_from_data(json.load(file))
+
+
+# --- editing ------------------------------------------------------------------------------------------
+
+OPTIONAL_CHOICES = {"behavior": BEHAVIORS, "targeting": list(TARGETING_STRATEGIES), "on_rout": list(ROUT_BEHAVIORS)}
+
+
+def unique_name(base, taken):
+    if base not in taken:
+        return base
+    k = 2
+    while f"{base} {k}" in taken:
+        k += 1
+    return f"{base} {k}"
+
+
+def member_names(job):
+    return {m["name"] for f in job["factions"] for m in f["members"]}
+
+
+def add_faction(job):
+    """Append an empty faction; returns its index."""
+    job["factions"].append({"name": unique_name(f"Faction {len(job['factions']) + 1}", {f["name"] for f in job["factions"]}),
+                            "members": []})
+    return len(job["factions"]) - 1
+
+
+def add_member(job, faction_index):
+    """Append a blank character to a faction; returns its index."""
+    members = job["factions"][faction_index]["members"]
+    members.append(new_character(unique_name("New character", member_names(job))))
+    return len(members) - 1
+
+
+def duplicate_member(job, faction_index, member_index):
+    members = job["factions"][faction_index]["members"]
+    clone = copy.deepcopy(members[member_index])
+    clone["name"] = unique_name(clone["name"], member_names(job))
+    members.append(clone)
+    return len(members) - 1
+
+
+def add_characters(job, faction_index, characters):
+    """Add imported characters to a faction, renaming those whose name is already taken."""
+    taken = member_names(job)
+    for character in characters:
+        character["name"] = unique_name(character["name"], taken)
+        taken.add(character["name"])
+        job["factions"][faction_index]["members"].append(character)
+
+
+def set_field(job, target, key, value):
+    """Set a field of a character or faction dict after validating it; raises ValueError when invalid.
+
+    Optional fields (fighting style, targeting, rout) are removed when `value` is None or blank.
+    """
+    is_faction = "members" in target
+    if key == "name":
+        value = (value or "").strip()
+        if not value:
+            raise ValueError("The name cannot be empty")
+        others = {f["name"] for f in job["factions"] if f is not target} if is_faction else member_names(job) - {target["name"]}
+        if value in others:
+            raise ValueError(f"There is already a {'faction' if is_faction else 'character'} named '{value}'")
+    elif key in OPTIONAL_CHOICES:
+        if value in (None, ""):
+            target.pop(key, None)
+            return
+        if value not in OPTIONAL_CHOICES[key]:
+            raise ValueError(f"Unknown {key} '{value}'")
+    elif key == "rout_threshold":
+        if value in (None, ""):
+            target.pop(key, None)
+            return
+        if not 0 < float(value) <= 1:
+            raise ValueError("The rout threshold must be between 0 and 1")
+        value = float(value)
+    elif key == "health" or key in CHARACTERISTICS:
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ValueError(f"'{key}' must be a number")
+        if value != int(value) or value < 0 or (key == "health" and value <= 0):
+            raise ValueError(f"'{key}' must be a whole number, positive" if key == "health" else f"'{key}' must be a whole number, 0 or more")
+        value = int(value)
+    else:
+        raise ValueError(f"Unknown field '{key}'")
+    target[key] = value

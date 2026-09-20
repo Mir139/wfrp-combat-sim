@@ -8,6 +8,7 @@ from src.combat import Combat, DEFAULT_DISTANCE
 from src.stats import DEFAULT_CONFIDENCE, wilson_interval
 
 DEFAULT_NUM_SIMULATIONS = 10000
+PROGRESS_STEPS = 50  # progress reports of a single-process run
 DEFAULT_KEEP_LOGS = 100  # detailed logs are only kept for the first battles, to bound memory
 
 
@@ -41,24 +42,36 @@ class Simulation:
         self.rng = random.Random(seed)
         self.initial_distance = initial_distance
 
-    def run_simulation(self, num_simulations, keep_logs=DEFAULT_KEEP_LOGS, workers=1):
+    def run_simulation(self, num_simulations, keep_logs=DEFAULT_KEEP_LOGS, workers=1, progress=None):
         """Run `num_simulations` fights.
 
         Every fight gets its own seed drawn from the simulation seed, so the results do not depend on
         `workers`. Only the first `keep_logs` fights keep their action log (None: keep all of them);
-        the others have `action_log` set to None.
+        the others have `action_log` set to None. `progress(done, total)` is called as fights complete.
         """
         seeds = [self.rng.getrandbits(64) for _ in range(num_simulations)]
         jobs = [(seed, keep_logs is None or i < keep_logs) for i, seed in enumerate(seeds)]
         if workers is None or workers <= 0:
             workers = os.cpu_count() or 1
         workers = min(workers, max(num_simulations, 1))
-        if workers == 1:
-            return _run_chunk((self.factions, self.initial_distance, jobs))
-        size = -(-len(jobs) // (workers * 4))
+        pieces = workers * 4 if workers > 1 else PROGRESS_STEPS
+        size = max(1, -(-len(jobs) // pieces))
         chunks = [(self.factions, self.initial_distance, jobs[i:i + size]) for i in range(0, len(jobs), size)]
-        with ProcessPoolExecutor(max_workers=workers) as pool:
-            return [result for chunk in pool.map(_run_chunk, chunks) for result in chunk]
+        results = []
+
+        def collect(chunk_results):
+            results.extend(chunk_results)
+            if progress:
+                progress(len(results), num_simulations)
+
+        if workers == 1:
+            for chunk in chunks:
+                collect(_run_chunk(chunk))
+        else:
+            with ProcessPoolExecutor(max_workers=workers) as pool:
+                for chunk_results in pool.map(_run_chunk, chunks):
+                    collect(chunk_results)
+        return results
 
     def calculate_survival_probabilities(self, results):
         probabilities = {}

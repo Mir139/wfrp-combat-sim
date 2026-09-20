@@ -1,184 +1,178 @@
-"""Items panel: browse and edit the item database."""
-import tkinter as tk
-from tkinter import messagebox, ttk
+"""Items panel: browse, search and edit the item database."""
+import json
+import os
 
-TYPE_LABELS = {"melee_weapons": "Melee weapons", "ranged_weapons": "Ranged weapons", "armors": "Armors"}
-# (key, kind): kinds are text, int (stored as a string, like the database does), list (comma separated) and bool
-FIELDS = {
-    "melee_weapons": [("name", "text"), ("reach", "text"), ("damage", "int"), ("attributes", "list"),
-                      ("encumbrance", "text"), ("2M", "bool")],
-    "ranged_weapons": [("name", "text"), ("range", "int"), ("damage", "int"), ("attributes", "list"),
-                       ("encumbrance", "text"), ("2M", "bool"), ("range_BF", "bool"), ("damage_BF", "bool")],
-    "armors": [("name", "text"), ("penalty", "list"), ("location", "text"), ("armor_points", "int"), ("attributes", "list")],
-}
-DEFAULTS = {"melee_weapons": {"reach": "Moyenne", "damage": "4", "attributes": [], "encumbrance": "1", "2M": False},
-            "ranged_weapons": {"range": "20", "damage": "4", "attributes": [], "encumbrance": "1", "2M": False,
-                               "range_BF": False, "damage_BF": False},
-            "armors": {"penalty": [], "location": "Tous", "armor_points": "1", "attributes": []}}
+from nicegui import ui
+
+from src.database import DEFAULTS, FIELDS, TYPE_LABELS, display, form_values, item_from_values, items_using
+from src.gui.common import confirm, notify_error
+from src.gui.state import json_files, read_json, safe_json_name, write_json
 
 
-def display(value):
-    if isinstance(value, list):
-        return ", ".join(str(v) for v in value)
-    if isinstance(value, bool):
-        return "yes" if value else ""
-    return str(value)
+class ItemsPanel:
+    def __init__(self, state, on_db_changed=None):
+        self.state = state
+        self.on_db_changed = on_db_changed or (lambda: None)
+        self.item_type = "melee_weapons"
 
+    # --- layout ----------------------------------------------------------------------
 
-class ItemsPanel(ttk.Frame):
-    def __init__(self, master, app):
-        super().__init__(master, padding=8)
-        self.app = app
-        self.item_type = tk.StringVar(value=TYPE_LABELS["melee_weapons"])
-        self.search = tk.StringVar()
-        self._build()
+    def build(self):
+        with ui.row().classes("w-full items-center gap-1"):
+            ui.button("Open", icon="folder_open", on_click=self.open_dialog).props("flat").mark("open-db")
+            ui.button("Save", icon="save", on_click=self.save).props("flat").mark("save-db")
+            ui.button("Download", icon="download", on_click=self.download).props("flat").mark("download-db")
+            self.path_label = ui.label().classes("muted ml-4")
+        with ui.row().classes("w-full items-center gap-4 mt-2"):
+            ui.toggle(TYPE_LABELS, value=self.item_type, on_change=self.change_type).props("no-caps").mark("item-kind")
+            self.search = ui.input(placeholder="Search").props("dense outlined clearable").classes("w-64").mark("search")
+            ui.space()
+            ui.button("Add", icon="add", on_click=lambda: self.edit_dialog(None)).props("outline").mark("items-add")
+            ui.button("Edit", icon="edit", on_click=self.edit_selected).props("outline").mark("items-edit")
+            ui.button("Delete", icon="delete", on_click=self.delete).props("outline color=negative").mark("items-delete")
+        self.table_area = ui.column().classes("w-full")
+        self.render_table()
+        self.update_path()
 
-    def _build(self):
-        bar = ttk.Frame(self)
-        bar.pack(fill=tk.X)
-        ttk.Button(bar, text="Open database...", command=self.app.open_db).pack(side=tk.LEFT)
-        ttk.Button(bar, text="Save database", command=self.app.save_db).pack(side=tk.LEFT, padx=4)
-        self.path_label = ttk.Label(bar, foreground="#52514e")
-        self.path_label.pack(side=tk.LEFT, padx=12)
+    def update_path(self):
+        self.path_label.set_text(os.path.relpath(self.state.db_path) if self.state.db_path else "(unsaved database)")
 
-        filters = ttk.Frame(self)
-        filters.pack(fill=tk.X, pady=8)
-        type_box = ttk.Combobox(filters, textvariable=self.item_type, values=list(TYPE_LABELS.values()), state="readonly", width=16)
-        type_box.pack(side=tk.LEFT)
-        type_box.bind("<<ComboboxSelected>>", lambda e: self.refresh())
-        ttk.Label(filters, text="Search").pack(side=tk.LEFT, padx=(16, 4))
-        entry = ttk.Entry(filters, textvariable=self.search, width=26)
-        entry.pack(side=tk.LEFT)
-        self.search.trace_add("write", lambda *a: self.refresh())
-
-        holder = ttk.Frame(self)
-        holder.pack(fill=tk.BOTH, expand=True)
-        self.tree = ttk.Treeview(holder, show="headings", selectmode="browse")
-        scroll = ttk.Scrollbar(holder, orient="vertical", command=self.tree.yview)
-        self.tree.configure(yscrollcommand=scroll.set)
-        self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scroll.pack(side=tk.LEFT, fill=tk.Y)
-        self.tree.bind("<Double-1>", lambda e: self.edit())
-
-        buttons = ttk.Frame(self)
-        buttons.pack(fill=tk.X, pady=(8, 0))
-        ttk.Button(buttons, text="Add", command=self.add).pack(side=tk.LEFT)
-        ttk.Button(buttons, text="Edit", command=self.edit).pack(side=tk.LEFT, padx=4)
-        ttk.Button(buttons, text="Delete", command=self.delete).pack(side=tk.LEFT)
-        self.count = ttk.Label(buttons, foreground="#52514e")
-        self.count.pack(side=tk.RIGHT)
-
-    @property
-    def type_key(self):
-        return next(k for k, label in TYPE_LABELS.items() if label == self.item_type.get())
+    def change_type(self, event):
+        self.item_type = event.value
+        self.render_table()
 
     @property
     def items(self):
-        return self.app.inventory[self.type_key]
+        return self.state.inventory[self.item_type]
 
-    def db_changed(self):
-        self.path_label.config(text=self.app.db_path or "(unsaved database)")
-        self.refresh()
+    def render_table(self):
+        self.table_area.clear()
+        fields = [key for key, _ in FIELDS[self.item_type]]
+        columns = [{"name": key, "label": key, "field": key, "align": "left", "sortable": True} for key in fields]
+        rows = [{"idx": i, **{key: display(item.get(key, "")) for key in fields}} for i, item in enumerate(self.items)]
+        with self.table_area:
+            self.table = ui.table(columns=columns, rows=rows, row_key="idx", selection="single",
+                                  pagination={"rowsPerPage": 15}).classes("w-full").props("flat bordered dense")
+            self.table.on("rowDblclick", lambda e: self.edit_dialog(int(e.args[1]["idx"])))
+            self.search.bind_value_to(self.table, "filter")
+            self.count = ui.label(f"{len(rows)} items").classes("muted").mark("item-count")
 
-    def refresh(self):
-        fields = [key for key, _ in FIELDS[self.type_key]]
-        self.tree.config(columns=fields)
-        for key in fields:
-            self.tree.heading(key, text=key)
-            self.tree.column(key, width=170 if key in ("name", "attributes", "penalty") else 80, anchor=tk.W)
-        self.tree.delete(*self.tree.get_children())
-        needle = self.search.get().strip().lower()
-        shown = 0
-        for index, item in enumerate(self.items):
-            if needle and needle not in " ".join(display(item.get(k, "")) for k in fields).lower():
-                continue
-            self.tree.insert("", tk.END, iid=str(index), values=[display(item.get(k, "")) for k in fields])
-            shown += 1
-        self.count.config(text=f"{shown} of {len(self.items)} items")
-
-    def selected_index(self):
-        selection = self.tree.selection()
-        return int(selection[0]) if selection else None
-
-    def add(self):
-        self.open_editor(None)
-
-    def edit(self):
-        index = self.selected_index()
-        if index is not None:
-            self.open_editor(index)
-
-    def delete(self):
+    def edit_selected(self):
         index = self.selected_index()
         if index is None:
+            notify_error("Select an item first")
+        else:
+            self.edit_dialog(index)
+
+    def selected_index(self):
+        return self.table.selected[0]["idx"] if self.table.selected else None
+
+    # --- editing ---------------------------------------------------------------------------
+
+    def edit_dialog(self, index):
+        item = dict(DEFAULTS[self.item_type]) if index is None else dict(self.items[index])
+        values = form_values(self.item_type, item)
+        widgets = {}
+        with ui.dialog() as dialog, ui.card().classes("w-[30rem]"):
+            ui.label("Add an item" if index is None else f"Edit {item['name']}").classes("text-lg font-medium")
+            for key, kind in FIELDS[self.item_type]:
+                if kind == "bool":
+                    widgets[key] = ui.checkbox(key, value=values[key]).mark(f"dialog-{key}")
+                else:
+                    hint = " (comma separated)" if kind == "list" else " (whole number)" if kind == "int" else ""
+                    widgets[key] = ui.input(key + hint, value=values[key]).classes("w-full").props("dense outlined").mark(f"dialog-{key}")
+
+            def save():
+                other = {o["name"] for i, o in enumerate(self.items) if i != index}
+                try:
+                    new = item_from_values(self.item_type, {k: w.value for k, w in widgets.items()}, other)
+                except ValueError as error:
+                    notify_error(str(error))
+                    return
+                if index is None:
+                    self.items.append(new)
+                else:
+                    self.items[index] = new
+                dialog.close()
+                self.render_table()
+                self.on_db_changed()
+
+            with ui.row().classes("w-full justify-end"):
+                ui.button("Cancel", on_click=dialog.close).props("flat")
+                ui.button("Save", icon="check", on_click=save).props("outline").mark("dialog-save")
+        dialog.open()
+
+    async def delete(self):
+        index = self.selected_index()
+        if index is None:
+            notify_error("Select an item first")
             return
         name = self.items[index]["name"]
-        users = [m["name"] for f in self.app.job["factions"] for m in f["members"]
-                 if any(i["type"] == self.type_key and i["name"] == name for i in m.get("inventory", []))]
-        message = f"Delete '{name}'?"
-        if users:
-            message += f"\nIt is used by: {', '.join(users)}."
-        if messagebox.askyesno("Delete", message):
+        users = items_using(self.state.job, self.item_type, name)
+        message = f"Delete '{name}'?" + (f"\nIt is used by: {', '.join(users)}." if users else "")
+        if await confirm(message, "Delete"):
             del self.items[index]
-            self.refresh()
-            self.app.factions_panel.db_changed()
+            self.render_table()
+            self.on_db_changed()
 
-    def open_editor(self, index):
-        item_type = self.type_key
-        item = dict(DEFAULTS[item_type], name="") if index is None else dict(self.items[index])
-        window = tk.Toplevel(self)
-        window.title("Add an item" if index is None else f"Edit {item['name']}")
-        window.transient(self.winfo_toplevel())
-        window.grab_set()
-        variables = {}
-        for row, (key, kind) in enumerate(FIELDS[item_type]):
-            label = key + (" (comma separated)" if kind == "list" else "")
-            ttk.Label(window, text=label).grid(row=row, column=0, sticky=tk.W, padx=8, pady=3)
-            if kind == "bool":
-                variables[key] = tk.BooleanVar(value=bool(item.get(key)))
-                ttk.Checkbutton(window, variable=variables[key]).grid(row=row, column=1, sticky=tk.W)
-            else:
-                variables[key] = tk.StringVar(value=display(item.get(key, "")))
-                ttk.Entry(window, textvariable=variables[key], width=34).grid(row=row, column=1, padx=8, pady=3)
+    # --- files -------------------------------------------------------------------------------------
 
-        def save():
-            try:
-                new = self.read_item(item_type, variables, index)
-            except ValueError as error:
-                messagebox.showerror("Invalid value", str(error), parent=window)
-                return
-            if index is None:
-                self.items.append(new)
-            else:
-                self.items[index] = new
-            window.destroy()
-            self.refresh()
-            self.app.factions_panel.db_changed()
+    def save(self):
+        path = self.state.db_path or os.path.join(self.state.db_dir, "db.json")
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        write_json(path, self.state.db_data)
+        self.state.db_path = path
+        self.update_path()
+        ui.notify(f"Saved to {os.path.relpath(path)}", type="positive")
 
-        buttons = ttk.Frame(window)
-        buttons.grid(row=len(FIELDS[item_type]), column=0, columnspan=2, pady=8)
-        ttk.Button(buttons, text="Save", command=save).pack(side=tk.LEFT, padx=4)
-        ttk.Button(buttons, text="Cancel", command=window.destroy).pack(side=tk.LEFT)
+    def download(self):
+        ui.download(json.dumps(self.state.db_data, ensure_ascii=False, indent=4).encode("utf-8"),
+                    safe_json_name(os.path.basename(self.state.db_path or ""), "db.json"))
 
-    def read_item(self, item_type, variables, index):
-        item = {}
-        for key, kind in FIELDS[item_type]:
-            value = variables[key].get()
-            if kind == "bool":
-                item[key] = bool(value)
-            elif kind == "list":
-                item[key] = [part.strip() for part in value.split(",") if part.strip()]
-            elif kind == "int":
+    def load_db(self, data, path=None):
+        self.state.set_db(data, path)
+        self.render_table()
+        self.update_path()
+        self.on_db_changed()
+
+    def open_dialog(self):
+        with ui.dialog() as dialog, ui.card().classes("w-96"):
+            ui.label("Open an item database").classes("text-lg font-medium")
+            files = json_files(self.state.db_dir)
+            choice = ui.select(files, label=f"Databases in {os.path.basename(self.state.db_dir)}/",
+                               value=files[0] if files else None).classes("w-full").mark("db-file")
+
+            def open_selected():
+                path = os.path.join(self.state.db_dir, choice.value)
                 try:
-                    item[key] = str(int(value.strip()))
-                except ValueError:
-                    raise ValueError(f"'{key}' must be a whole number, not '{value}'") from None
-            else:
-                item[key] = value.strip()
-        if not item["name"]:
-            raise ValueError("The name cannot be empty")
-        if any(other["name"] == item["name"] for i, other in enumerate(self.items) if i != index):
-            raise ValueError(f"There is already an item named '{item['name']}'")
-        if item_type == "armors" and "," in item["location"]:
-            item["location"] = [part.strip() for part in item["location"].split(",")]
-        return item
+                    data = read_json(path)
+                    self.check_db(data)
+                except (OSError, ValueError, TypeError) as error:
+                    notify_error(f"Cannot open the database: {error}")
+                    return
+                dialog.close()
+                self.load_db(data, path)
+
+            opener = ui.button("Open", icon="folder_open", on_click=open_selected).props("outline").mark("open-selected-db")
+            opener.set_enabled(bool(files))
+            ui.separator()
+            ui.label("or upload a database file").classes("muted")
+
+            async def uploaded(event):
+                try:
+                    data = json.loads(await event.file.text())
+                    self.check_db(data)
+                except (ValueError, TypeError) as error:
+                    notify_error(f"Cannot open {event.file.name}: {error}")
+                    return
+                dialog.close()
+                self.load_db(data, None)
+
+            ui.upload(on_upload=uploaded, auto_upload=True, label="Choose a .json file").props("accept=.json flat").classes("w-full")
+            ui.button("Close", on_click=dialog.close).props("flat")
+        dialog.open()
+
+    @staticmethod
+    def check_db(data):
+        if not isinstance(data, dict) or not isinstance(data.get("inventory"), dict):
+            raise ValueError("this file has no 'inventory'")
