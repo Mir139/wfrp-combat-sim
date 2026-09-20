@@ -1,7 +1,8 @@
-import random
-from utils import calculate_dr, roll_d100
+from src.utils import calculate_dr, roll_d100
 from math import floor
-from inventory import Inventory  # Import the Inventory class
+from src.inventory import Inventory  # Import the Inventory class
+
+LOCATIONS = ["Head", "Left Arm", "Right Arm", "Body", "Left Leg", "Right Leg"]
 
 class Character:
     def __init__(self, name, health, M, CC, CT, F, E, I, Ag, Dex, Int, FM, Soc, faction):
@@ -21,7 +22,6 @@ class Character:
         self.inventory = Inventory()  # Initialize inventory as an Inventory object
         self.faction = faction
         self.engaged = False
-        self.PA = [0,0,0,0,0,0]
 
         if self.CC > self.CT:
             self.prefers_melee = True
@@ -35,28 +35,21 @@ class Character:
         elif weapon_type == 'ranged_weapons':
             self.prefers_melee = False
     
+    @property
+    def PA(self):
+        """Armor points per location, ordered as LOCATIONS, summed over worn armors."""
+        return self.inventory.armor_points()
+
     def take_damage(self, damage, location):
-        if location == "Head":
-            PA = self.PA[0]
-        elif location == "Left Arm":
-            PA = self.PA[1]
-        elif location == "Right Arm":
-            PA = self.PA[2]
-        elif location == "Body":
-            PA = self.PA[3]
-        elif location == "Left Leg":
-            PA = self.PA[4]
-        elif location == "Right Leg":
-            PA = self.PA[5]
-            
+        PA = self.PA[LOCATIONS.index(location)]
         damage_taken = max(1, damage - (self.E // 10) - PA)
         self.health -= damage_taken
         return damage_taken
 
-    def attack_enemy(self, enemy):
+    def attack_enemy(self, enemy, rng=None):
         if self.engaged:
-            attacker_roll = roll_d100()
-            enemy_roll = roll_d100()
+            attacker_roll = roll_d100(rng)
+            enemy_roll = roll_d100(rng)
             attacker_dr = calculate_dr(attacker_roll, self.CC)
             enemy_dr = calculate_dr(enemy_roll, enemy.CC)
             if attacker_dr > enemy_dr:
@@ -65,7 +58,7 @@ class Character:
             else:
                 return {"attack_roll": attacker_roll, "damage": 0, "enemy_roll": enemy_roll, "enemy_dr": enemy_dr, "attack_dr": attacker_dr, "type": "melee"}
         else:
-            attacker_roll = roll_d100()
+            attacker_roll = roll_d100(rng)
             if attacker_roll <= self.CT:
                 damage, location = self.apply_damage(enemy, attacker_roll, 0)
                 return {"attack_roll": attacker_roll, "damage": damage, "location": location, "type": "ranged"}
@@ -74,7 +67,9 @@ class Character:
 
     def calculate_damage(self, weapon, dr):
         weapon_type = self.inventory.get_item_type(weapon)
-        if weapon_type == 'melee_weapons':
+        if weapon is None:
+            damage = self.BF() + dr
+        elif weapon_type == 'melee_weapons':
             damage = self.BF() + int(weapon.damage) + dr
         elif weapon_type == 'ranged_weapons':
             if weapon.damage_BF:

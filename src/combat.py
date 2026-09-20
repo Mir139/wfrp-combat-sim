@@ -1,8 +1,10 @@
-from faction import Faction
 import random
 
+MAX_ROUNDS = 1000
+
 class Combat:
-    def __init__(self, faction1, faction2):
+    def __init__(self, faction1, faction2, rng=None):
+        self.rng = rng or random.Random()
         self.faction1 = faction1
         self.faction2 = faction2
         self.action_log = []
@@ -40,7 +42,7 @@ class Combat:
         if character.engaged:
             enemy = self.find_engaged_enemy(character)
             if enemy:
-                attack_result = character.attack_enemy(enemy)
+                attack_result = character.attack_enemy(enemy, self.rng)
                 self.action_log.append({
                     "action": "attack",
                     "attacker": character.name,
@@ -51,7 +53,7 @@ class Combat:
         else:
             enemy = self.find_enemy(character)
             if enemy:
-                attack_result = character.attack_enemy(enemy)
+                attack_result = character.attack_enemy(enemy, self.rng)
                 self.action_log.append({
                     "action": "ranged_attack",
                     "attacker": character.name,
@@ -64,14 +66,14 @@ class Combat:
         enemies = self.faction2.get_members() if character in self.faction1.get_members() else self.faction1.get_members()
         alive_enemies = [enemy for enemy in enemies if enemy.is_alive()]
         if alive_enemies:
-            return random.choice(alive_enemies)
+            return self.rng.choice(alive_enemies)
         return None
 
     def find_engaged_enemy(self, character):
         enemies = self.faction2.get_members() if character in self.faction1.get_members() else self.faction1.get_members()
         engaged_enemies = [enemy for enemy in enemies if enemy.engaged and enemy.is_alive()]
         if engaged_enemies:
-            return random.choice(engaged_enemies)
+            return self.rng.choice(engaged_enemies)
         return None
 
     def determine_winner(self):
@@ -84,28 +86,24 @@ class Combat:
         return None
     
     def determine_survivors(self, faction):
-        survivors = []
-        for character in faction.get_members():
-            if character.is_alive():
-                survivors.append(character.name)
-        return survivors
-    
+        if faction is None:
+            return []
+        return [character.name for character in faction.get_members() if character.is_alive()]
+
     def determine_remaining_health(self, faction):
-        remaining_health = []
-        for character in faction.get_members():
-            if character.is_alive():
-                remaining_health.append(character.health)
-        return remaining_health
+        """Health of each surviving member of `faction`, keyed by character name."""
+        if faction is None:
+            return {}
+        return {character.name: character.health for character in faction.get_members() if character.is_alive()}
 
     def run_combat(self):
         self.initiate_combat()
-        while any(char.is_alive() for char in self.faction1.get_members()) and any(char.is_alive() for char in self.faction2.get_members()):
+        rounds = 0
+        while rounds < MAX_ROUNDS and any(char.is_alive() for char in self.faction1.get_members()) and any(char.is_alive() for char in self.faction2.get_members()):
             for character in self.initiative_order:
                 self.resolve_turn(character)
+            rounds += 1
         winner = self.determine_winner()
         survivors = self.determine_survivors(winner)
         remaining_health = self.determine_remaining_health(winner)
-        if winner:
-            return winner.name, survivors, remaining_health, self.action_log
-        else:
-            return None, survivors, remaining_health, self.action_log
+        return (winner.name if winner else None), survivors, remaining_health, self.action_log

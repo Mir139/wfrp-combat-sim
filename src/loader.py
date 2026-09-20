@@ -1,8 +1,8 @@
 import json
 import warnings
-from character import Character
-from inventory import Inventory, MeleeWeapon, RangedWeapon, Armor
-from faction import Faction  # Import the Faction class
+from src.character import Character
+from src.inventory import Inventory, MeleeWeapon, RangedWeapon, Armor
+from src.faction import Faction  # Import the Faction class
 
 def load_inventory(file_path):
     with open(file_path, 'r', encoding='utf-8') as file:

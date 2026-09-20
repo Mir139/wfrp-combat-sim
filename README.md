@@ -61,7 +61,7 @@ To simulate combat, you can use the graphical user interface or run the simulati
 1. Ensure `job1.json` and `db.json` are properly configured.
 2. Run the simulation:
    ```python
-   python src/simulation.py
+   python -m src.simulation
    ```
 
 ## Testing

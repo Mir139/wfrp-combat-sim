@@ -1,3 +1,7 @@
+ARMOR_LOCATIONS = {
+    "Tête": 0, "Bras gauche": 1, "Bras droit": 2, "Corps": 3, "Jambe gauche": 4, "Jambe droite": 5,
+}
+
 class Inventory:
     def __init__(self):
         self.items = []
@@ -23,6 +27,15 @@ class Inventory:
                     return "ranged_weapons"
         return None
     
+    def armor_points(self):
+        """Armor points per location (Head, L/R Arm, Body, L/R Leg), summed over armors."""
+        points = [0] * 6
+        for item in self.items:
+            if isinstance(item, Armor):
+                for i in item.covered_indexes():
+                    points[i] += int(item.armor_points)
+        return points
+
     def get_item_type(self, item):
         if isinstance(item, MeleeWeapon):
             return "melee_weapons"
@@ -61,3 +74,10 @@ class Armor(Item):
         self.penalty = penalty
         self.location = location
         self.armor_points = armor_points
+
+    def covered_indexes(self):
+        """Indexes (Head, L Arm, R Arm, Body, L Leg, R Leg) covered by this armor."""
+        if self.location == "Tous":
+            return range(6)
+        names = self.location if isinstance(self.location, list) else [self.location]
+        return [ARMOR_LOCATIONS[n] for n in names]

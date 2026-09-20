@@ -1,10 +1,12 @@
-from loader import load_inventory, load_simulation_config, create_characters
-from combat import Combat
+from src.loader import load_inventory, load_simulation_config, create_characters
+from src.combat import Combat
 import copy
+import random
 
 class Simulation:
-    def __init__(self, factions):
+    def __init__(self, factions, seed=None):
         self.factions = factions
+        self.rng = random.Random(seed)
 
     def run_simulation(self, num_simulations):
         results = []
@@ -17,7 +19,7 @@ class Simulation:
         # Select two factions for the battle
         faction1 = copy.deepcopy(self.factions[0])
         faction2 = copy.deepcopy(self.factions[1])
-        combat = Combat(faction1, faction2)
+        combat = Combat(faction1, faction2, self.rng)
         winner, survivors, remaining_health, action_log = combat.run_combat()
         return {"winner": winner, "survivors": survivors, "remaining_health": remaining_health, "action_log": action_log}
 
@@ -30,6 +32,7 @@ class Simulation:
     def gather_metrics(self, results):
         metrics = {
             "total_battles": len(results),
+            "draws": sum(1 for result in results if result['winner'] is None),
             "survival_probabilities": self.calculate_survival_probabilities(results),
             "average_remaining_health": {},
             "individual_survival_probabilities": {},
@@ -43,11 +46,11 @@ class Simulation:
             individual_wins = {member.name: 0 for member in faction.members}
             for result in results:
                 if result['winner'] == faction.name:
-                    total_health += sum(result['remaining_health'])
+                    total_health += sum(result['remaining_health'].values())
                     win_count += 1
-                    for member, health in zip(faction.members, result['remaining_health']):
-                        individual_health[member.name] += health
-                        individual_wins[member.name] += 1
+                    for name, health in result['remaining_health'].items():
+                        individual_health[name] += health
+                        individual_wins[name] += 1
             if win_count > 0:
                 metrics["average_remaining_health"][faction.name] = total_health / win_count
             else:

@@ -2,8 +2,8 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, Toplevel, Text
 from tkinter.ttk import Combobox, Treeview, Scrollbar
 import json
-from simulation import Simulation
-from loader import load_inventory, load_simulation_config, create_characters
+from src.simulation import Simulation
+from src.loader import load_inventory, load_simulation_config, create_characters
 
 class SimulationGUI:
     def __init__(self, root):
