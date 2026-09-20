@@ -116,6 +116,10 @@ class RangedWeapon(Item):
             self.reload_progress = 0
         return self.is_ready()
 
+    def reset(self):
+        self.shots_left = self.magazine
+        self.reload_progress = 0
+
     def jam(self):
         """Misfire: the weapon has to be reloaded from scratch."""
         self.shots_left = 0

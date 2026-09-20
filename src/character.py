@@ -53,6 +53,19 @@ class Character:
         """Armor points per location, ordered as LOCATIONS, summed over worn armors."""
         return self.inventory.armor_points()
 
+    def reset(self):
+        """Back to the state of a freshly created character (start of a fight)."""
+        self.health = self.max_health
+        self.status = None
+        self.morale_checked = set()
+        self.position = (0.0, 0.0)
+        self.target = None
+        self.bleeding = 0
+        self.stunned = False
+        self.prone = False
+        for weapon in self.ranged_weapons():
+            weapon.reset()
+
     def is_alive(self):
         return self.health > 0
 

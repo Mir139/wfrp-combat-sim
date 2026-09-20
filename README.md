@@ -22,20 +22,33 @@ pip install -r requirements.txt
 
 Run everything from the project root, as modules (`src` is a package).
 
-**Command line**: runs `sim/job1.json` against `db/db.json` and prints the metrics:
+**Command line**: estimate a job with many fights and print a report:
 
 ```
-python -m src.simulation
+python -m src.simulation sim/job1.json -n 10000 --seed 1 -j 0
 ```
+
+| Option | Description |
+|---|---|
+| `job` | Job file (default `sim/job1.json`) |
+| `--db FILE` | Item database (default `db/db.json`) |
+| `-n`, `--num-simulations` | Number of fights (default: the job's `num_simulations`, else 10000) |
+| `--seed N` | Seed for reproducible results |
+| `-j`, `--workers N` | Worker processes, `0` for one per CPU (default 1). The results do not depend on it |
+| `--confidence C` | Confidence level of the intervals (default 0.95) |
+| `--histogram` | Also print the remaining-health histogram of every character |
+| `--compare FILE` | What-if analysis, see [Comparing scenarios](#comparing-scenarios) |
+| `--json FILE` / `--csv FILE` | Export the metrics (CSV: one row per character, or per scenario and faction with `--compare`) |
 
 **GUI** (Tkinter): pick the database and job files, set the number of simulations, run, then browse
-the metrics of each job and replay the log of any single fight:
+the metrics of each job and replay the log of any of the first 100 fights:
 
 ```
 python -m src.gui
 ```
 
-**From Python**: pass a seed to get reproducible results:
+**From Python**: pass a seed to get reproducible results. When you use `workers` above 1, the script must be
+guarded by `if __name__ == "__main__":`, because worker processes re-import it.
 
 ```python
 from src.loader import load_inventory, load_simulation_config, create_characters
@@ -46,7 +59,7 @@ config = load_simulation_config("sim/job1.json")
 factions = create_characters(config["factions"], inventory)
 
 sim = Simulation(factions, seed=42, initial_distance=12)
-results = sim.run_simulation(1000)
+results = sim.run_simulation(10000, keep_logs=0, workers=4)  # keep_logs: fights that keep their action log
 print(sim.gather_metrics(results))
 ```
 
@@ -55,6 +68,58 @@ print(sim.gather_metrics(results))
 ```
 pytest
 ```
+
+## Results
+
+`gather_metrics` (and the report, JSON and CSV outputs) provide:
+
+- **Chance of winning** of every faction, the number of draws, and the average Wounds left by the winners.
+- **Per character**: probability of surviving (fleeing or surrendering counts as surviving), of dying, of
+  being the first to fall, of routing, and the average Wounds left when alive.
+- **Rounds per combat**: mean, median, min, max.
+- **Remaining-health distribution** per character (`remaining_health_distribution`): the count of fights for
+  every final value of Wounds, dead characters being 0. `--histogram` prints it in ten slices.
+- **Confidence intervals** (Wilson score, 95% by default) on every probability, in `confidence_intervals`.
+  With 10000 fights they are about ±1 point around 50% and much tighter near 0% or 100%.
+
+Ten thousand fights of the example job take about 3 seconds on one core, and under a second on several. Only
+the first 100 fights keep their action log, to bound the memory use.
+
+### Comparing scenarios
+
+`--compare` runs the job and a list of variants of it with the **same seed**, so the differences between
+scenarios are not blurred by dice noise, and prints the win chances and the survival of every character with
+the change against the base scenario. A comparison file (see `sim/compare_example.json`) contains `variants`
+and `sweeps`:
+
+```json
+{
+    "variants": [
+        { "name": "Molrella wears heavy armor",
+          "add_items": [{ "member": "Molrella Tuilecaramel", "type": "armors", "name": "Armure lourde" }] },
+        { "name": "Without Else", "remove_members": ["Else Sigloben"] }
+    ],
+    "sweeps": [
+        { "copy_member": "Terreur de la Teufel", "counts": [1, 2, 3] },
+        { "member": "Terreur de la Teufel", "field": "CC", "values": [50, 70] }
+    ]
+}
+```
+
+A variant can combine these operations, applied in this order:
+
+| Operation | Effect |
+|---|---|
+| `simulation` | Override simulation settings, e.g. `{"initial_distance": 6}` |
+| `faction_set` | Override faction fields, e.g. `{"Faction2": {"targeting": "weakest"}}` |
+| `remove_members` | List of character names to remove |
+| `copy_members` | `[{"member": "Goblin", "count": 2}]` adds clones named `Goblin 2`, `Goblin 3` |
+| `add_members` | `[{"faction": "Faction2", "member": {...}}]` adds a full character |
+| `set` | Override character fields, e.g. `{"Amris": {"CC": 60}}` |
+| `add_items` / `remove_items` | Give or take an item: `{"member", "type", "name"}` / `{"member", "name"}` |
+
+A sweep expands into one variant per value: either the values of a characteristic (`member`, `field`, `values`)
+or a number of extra clones of an enemy (`copy_member`, `counts`).
 
 ## Configuration
 
@@ -68,7 +133,7 @@ A job describes two or more factions and the simulation settings. Every faction 
 | `factions[].name` | Faction name |
 | `factions[].members[]` | Characters (see below) |
 | `factions[].targeting`, `on_rout`, `rout_threshold` | Optional defaults for all members (see [Tactics](#tactics)) |
-| `simulation.num_simulations` | Number of fights to run |
+| `simulation.num_simulations` | Number of fights to run (default 10000) |
 | `simulation.initial_distance` | Optional. Yards between the two sides at the start (default 12) |
 
 A character has a `name`, `health` (Wounds) and the characteristics `M`, `CC`, `CT`, `F`, `E`, `I`, `Ag`,
@@ -214,6 +279,7 @@ These are the points to check against the rulebook and the features not implemen
   Dangereuse, Explosion, Inoffensive (beyond choosing another weapon first).
 - Thrown weapons (knife, javelin, rock, bomb) have unlimited ammunition, and area effects are ignored.
 - Advantage, manoeuvres beyond parry/dodge, reach, two-handed/off-hand rules.
+- Plots (the histograms are text), importing character sheets, a graphical editor for jobs and comparisons.
 - Retreating to fight another day, regrouping, and target choice based on cover or line of sight.
 
 ## Project structure
@@ -221,11 +287,16 @@ These are the points to check against the rulebook and the features not implemen
 ```
 db/db.json            item database (weapons and armors)
 sim/job1.json         example job
+sim/compare_example.json  example comparison file
 src/
   rules.py            tests, opposed tests, range modifiers
   character.py        characteristics, states, weapon choice, attacks
   combat.py           one fight: placement, movement, targeting, morale, actions, log, winner
-  simulation.py       many fights, metrics
+  simulation.py       many fights (seeded, parallel), metrics with confidence intervals
+  stats.py            Wilson confidence intervals
+  compare.py          what-if variants and sweeps
+  report.py           text, JSON and CSV output
+  cli.py              command line (python -m src.simulation)
   inventory.py        items, armor points, reloading
   loader.py           JSON -> characters
   faction.py          group of characters

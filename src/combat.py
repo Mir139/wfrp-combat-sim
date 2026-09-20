@@ -12,6 +12,8 @@ class Combat:
         self.factions = list(factions)
         self.rng = rng or random.Random()
         self.action_log = []
+        self.rounds = 0
+        self.deaths = []  # names, in order of death
         self.faction_of = {id(m): f for f in self.factions for m in f.get_members()}
         self.initial_size = {id(f): len(f.get_members()) for f in self.factions}
         for faction, position in zip(self.factions, self.starting_positions(len(self.factions), distance)):
@@ -224,6 +226,11 @@ class Combat:
 
     # --- outcome -----------------------------------------------------------
 
+    def record_deaths(self):
+        for character in self.all_characters():
+            if not character.is_alive() and character.name not in self.deaths:
+                self.deaths.append(character.name)
+
     def determine_winner(self):
         """The only faction with fighters left, or None (draw)."""
         standing = [f for f in self.factions if any(m.is_active() for m in f.get_members())]
@@ -245,6 +252,8 @@ class Combat:
         while rounds < MAX_ROUNDS and sum(any(m.is_active() for m in f.get_members()) for f in self.factions) > 1:
             for character in self.initiative_order:
                 self.resolve_turn(character)
+                self.record_deaths()
             rounds += 1
+            self.rounds = rounds
         winner = self.determine_winner()
         return (winner.name if winner else None), self.determine_survivors(), self.determine_remaining_health(), self.action_log
