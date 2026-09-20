@@ -24,6 +24,7 @@ def build_parser():
     parser.add_argument("--histogram", action="store_true", help="also print the remaining health histograms")
     parser.add_argument("--compare", metavar="FILE",
                         help="comparison file listing variants and sweeps of the job (what-if analysis)")
+    parser.add_argument("--plots", metavar="DIR", help="save the charts as PNG files in DIR (needs matplotlib)")
     parser.add_argument("--json", metavar="FILE", help="write the full metrics as JSON")
     parser.add_argument("--csv", metavar="FILE", help="write a CSV summary (per character, or per scenario with --compare)")
     return parser
@@ -35,6 +36,16 @@ def main(argv=None):
         run(args)
     except (OSError, ValueError, KeyError) as error:  # bad path, invalid JSON, unknown character/item...
         raise SystemExit(f"Error: {error!r}" if isinstance(error, KeyError) else f"Error: {error}")
+
+
+def save_comparison_plots(outcomes, directory):
+    import os
+    from src.plots import SURFACE, plot_comparison
+    os.makedirs(directory, exist_ok=True)
+    for faction in outcomes[0]["metrics"]["survival_probabilities"]:
+        path = os.path.join(directory, f"comparison_{faction}.png".replace(" ", "_"))
+        plot_comparison(outcomes, faction).savefig(path, facecolor=SURFACE, bbox_inches="tight", pad_inches=0.15)
+        print(f"Chart written to {path}")
 
 
 def run(args):
@@ -55,6 +66,8 @@ def run(args):
             write_json(args.json, {"job": args.job, "seed": args.seed, "scenarios": outcomes})
         if args.csv:
             write_csv(args.csv, comparison_rows(outcomes))
+        if args.plots:
+            save_comparison_plots(outcomes, args.plots)
         return
 
     factions = create_characters(config["factions"], inventory)
@@ -67,6 +80,10 @@ def run(args):
         write_json(args.json, {"job": args.job, "seed": args.seed, "metrics": metrics})
     if args.csv:
         write_csv(args.csv, metrics_rows(metrics))
+    if args.plots:
+        from src.plots import save_plots
+        for path in save_plots(metrics, args.plots):
+            print(f"Chart written to {path}")
 
 
 if __name__ == "__main__":

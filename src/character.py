@@ -249,7 +249,7 @@ class Character:
     def determine_location(self, roll):
         if roll == 100:
             return "Right Leg"
-        inverted_roll = int(str(roll)[::-1])
+        inverted_roll = int(f"{roll:02d}"[::-1])  # 05 reads 50, not 5
         if inverted_roll <= 9:
             return "Head"
         elif inverted_roll <= 24:

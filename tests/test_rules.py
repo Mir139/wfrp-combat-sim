@@ -45,6 +45,24 @@ def test_location_is_always_a_known_zone():
         assert c.determine_location(roll) is not None
 
 
+def test_hit_location_reverses_the_two_digits_of_the_roll():
+    c = make_character()
+    assert c.determine_location(21) == "Left Arm"   # 12
+    assert c.determine_location(10) == "Head"       # 01
+    assert c.determine_location(5) == "Body"        # 05 -> 50
+    assert c.determine_location(1) == "Left Arm"    # 01 -> 10
+    assert c.determine_location(100) == "Right Leg"
+
+
+def test_hit_location_frequencies_match_the_table():
+    c = make_character()
+    counts = {}
+    for roll in range(1, 101):
+        location = c.determine_location(roll)
+        counts[location] = counts.get(location, 0) + 1
+    assert counts == {"Head": 9, "Left Arm": 15, "Right Arm": 20, "Body": 35, "Left Leg": 10, "Right Leg": 11}
+
+
 # --- tests and opposed tests -----------------------------------------------
 
 def test_success_and_sl():
